@@ -8,8 +8,8 @@ export function clientFactory({ projectId }) {
   const metrics = [];
   let intervalStart = new Date();
   let intervalEnd;
-  const counter = (name) => {
-    const counter = Counter(name);
+  const counter = (name, labels) => {
+    const counter = Counter(name, labels);
     metrics.push(counter);
     return counter;
   };
@@ -24,60 +24,95 @@ export function clientFactory({ projectId }) {
   };
 
   async function push() {
-    intervalEnd = new Date();
-    let timeSeries = metrics.map(toTimeSeries.bind(null, intervalStart, intervalEnd, resource));
-    metrics.forEach((metric) => metric.reset());
-    intervalStart = intervalEnd;
-    if (metrics.length > 0) {
-      await metricsClient.createTimeSeries({
-        name,
-        timeSeries,
-      });
-    }
+    try {
+      intervalEnd = new Date();
+      let timeSeries = metrics
+        .map(toTimeSeries.bind(null, intervalStart, intervalEnd, resource))
+        .flat();
+      metrics.forEach((metric) => metric.reset());
+      intervalStart = intervalEnd;
+      if (timeSeries.length > 0) {
+        await metricsClient.createTimeSeries({
+          name,
+          timeSeries,
+        });
+      }
 
-    setTimeout(push, 60 * 1000);
+      setTimeout(push, 60 * 1000);
+    } catch (e) {
+      console.log(e);
+    }
   }
   setTimeout(push, 60 * 1000);
 
   return { counter, push };
 }
 
-function Counter(name) {
-  let value = 0;
+function Counter(name, labels) {
+  let points = {};
 
-  const inc = () => {
-    value++;
+  if (labels) {
+    //Add a point for each unique combination of labels
+    const combinations = labelCombinations(labels);
+    combinations.forEach((combo) => {
+      const key = labelsKey(combo);
+      points[key] = {
+        labels: combo,
+        value: 0,
+      };
+    });
+  } else {
+    points[labelsKey()] = {
+      labels: null,
+      value: 0,
+    };
+  }
+
+  const inc = (labels) => {
+    const key = labelsKey(labels);
+    if (!points[key]) {
+      points[key] = {
+        labels,
+        value: 0,
+      };
+    }
+    points[labelsKey(labels)].value++;
   };
 
-  const valueFn = () => {
-    return value;
+  const pointsFn = () => {
+    return Object.values(points);
   };
 
   const reset = () => {
-    value = 0;
+    Object.values(points).forEach((point) => {
+      point.value = 0;
+    });
   };
 
-  return { name, inc, value: valueFn, reset };
+  return { name, inc, points: pointsFn, reset };
 }
 
 function toTimeSeries(startTime, endTime, resource, metric) {
-  return {
-    metric: {
-      type: `custom.googleapis.com/${metric.name}`,
-    },
-    resource,
-    points: [
-      {
-        interval: {
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-        },
-        value: {
-          int64Value: metric.value(),
-        },
+  return metric.points().map((point) => {
+    return {
+      metric: {
+        type: `custom.googleapis.com/${metric.name}`,
+        labels: point.labels,
       },
-    ],
-  };
+      resource,
+      points: [
+        {
+          interval: {
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+          },
+          value: {
+            int64Value: point.value,
+          },
+        },
+      ],
+    };
+  });
 }
 function uuidv4() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
@@ -85,4 +120,40 @@ function uuidv4() {
       v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function labelCombinations(labels) {
+  if (Object.keys(labels).length === 0) {
+    return [];
+  }
+  return labelCombinationsForKeys(labels, Object.keys(labels));
+}
+
+function labelCombinationsForKeys(labelsObj, keys) {
+  const result = [];
+  const myValues = labelsObj[keys[0]];
+  const remainder = keys.slice(1);
+  myValues.forEach((value) => {
+    if (remainder.length > 0) {
+      const remainderCombinations = labelCombinationsForKeys(labelsObj, remainder);
+      remainderCombinations.forEach((combo) => {
+        const valueObj = {};
+        valueObj[keys[0]] = value;
+        Object.assign(valueObj, combo);
+        result.push(valueObj);
+      });
+    } else {
+      const valueObj = {};
+      valueObj[keys[0]] = value;
+      result.push(valueObj);
+    }
+  });
+  return result;
+}
+
+function labelsKey(labels) {
+  if (!labels) {
+    return "no-labels";
+  }
+  return JSON.stringify(labels, Object.keys(labels).sort());
 }
