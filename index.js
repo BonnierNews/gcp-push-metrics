@@ -1,7 +1,7 @@
 "use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
 
-export function clientFactory({ projectId }) {
+export function PushClient({ projectId }) {
   //projectId, interval and instance should be options
   const metricsClient = new MetricServiceClient();
   const name = metricsClient.projectPath(projectId);
@@ -12,6 +12,12 @@ export function clientFactory({ projectId }) {
     const counter = Counter(name, labels);
     metrics.push(counter);
     return counter;
+  };
+
+  const gauge = (name, labels) => {
+    const gauge = Gauge(name, labels);
+    metrics.push(gauge);
+    return gauge;
   };
 
   const resource = {
@@ -29,7 +35,7 @@ export function clientFactory({ projectId }) {
       let timeSeries = metrics
         .map(toTimeSeries.bind(null, intervalStart, intervalEnd, resource))
         .flat();
-      metrics.forEach((metric) => metric.reset());
+      metrics.forEach((metric) => metric.intervalReset());
       intervalStart = intervalEnd;
       if (timeSeries.length > 0) {
         await metricsClient.createTimeSeries({
@@ -45,7 +51,7 @@ export function clientFactory({ projectId }) {
   }
   setTimeout(push, 60 * 1000);
 
-  return { counter, push };
+  return { counter, gauge, push };
 }
 
 function Counter(name, labels) {
@@ -83,13 +89,66 @@ function Counter(name, labels) {
     return Object.values(points);
   };
 
-  const reset = () => {
+  const intervalReset = () => {
     Object.values(points).forEach((point) => {
       point.value = 0;
     });
   };
 
-  return { name, inc, points: pointsFn, reset };
+  return { name, inc, points: pointsFn, intervalReset };
+}
+
+function Gauge(name, labels) {
+  let points = {};
+
+  if (labels) {
+    //Add a point for each unique combination of labels
+    const combinations = labelCombinations(labels);
+    combinations.forEach((combo) => {
+      const key = labelsKey(combo);
+      points[key] = {
+        labels: combo,
+        value: 0,
+      };
+    });
+  } else {
+    points[labelsKey()] = {
+      labels: null,
+      value: 0,
+    };
+  }
+
+  const inc = (labels) => {
+    const key = labelsKey(labels);
+    if (!points[key]) {
+      points[key] = {
+        labels,
+        value: 0,
+      };
+    }
+    points[labelsKey(labels)].value++;
+  };
+
+  const dec = (labels) => {
+    const key = labelsKey(labels);
+    if (!points[key]) {
+      points[key] = {
+        labels,
+        value: 0,
+      };
+    }
+    points[labelsKey(labels)].value--;
+  };
+
+  const pointsFn = () => {
+    return Object.values(points);
+  };
+
+  const intervalReset = () => {
+    //noop as a gauge should persist its values between intervals
+  };
+
+  return { name, inc, dec, points: pointsFn, intervalReset };
 }
 
 function toTimeSeries(startTime, endTime, resource, metric) {
