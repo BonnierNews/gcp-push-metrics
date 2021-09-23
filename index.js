@@ -54,51 +54,8 @@ export function PushClient({ projectId }) {
   return { counter, gauge, push };
 }
 
-function Counter(name, labels) {
-  let points = {};
-
-  if (labels) {
-    //Add a point for each unique combination of labels
-    const combinations = labelCombinations(labels);
-    combinations.forEach((combo) => {
-      const key = labelsKey(combo);
-      points[key] = {
-        labels: combo,
-        value: 0,
-      };
-    });
-  } else {
-    points[labelsKey()] = {
-      labels: null,
-      value: 0,
-    };
-  }
-
-  const inc = (labels) => {
-    const key = labelsKey(labels);
-    if (!points[key]) {
-      points[key] = {
-        labels,
-        value: 0,
-      };
-    }
-    points[labelsKey(labels)].value++;
-  };
-
-  const pointsFn = () => {
-    return Object.values(points);
-  };
-
-  const intervalReset = () => {
-    Object.values(points).forEach((point) => {
-      point.value = 0;
-    });
-  };
-
-  return { name, inc, points: pointsFn, intervalReset };
-}
-
-function Gauge(name, labels) {
+// "Base" factory function used by Counter and Gauge
+function Metric(name, labels) {
   let points = {};
 
   if (labels) {
@@ -144,11 +101,38 @@ function Gauge(name, labels) {
     return Object.values(points);
   };
 
+  return { name, inc, dec, points, pointsFn };
+}
+
+function Counter(name, labels) {
+  const metric = Metric(name, labels);
+  const intervalReset = () => {
+    Object.values(metric.points).forEach((point) => {
+      point.value = 0;
+    });
+  };
+  return { name, inc: metric.inc, points: metric.pointsFn, intervalReset };
+}
+
+function Gauge(name, labels) {
+  const metric = Metric(name, labels);
+
+  const dec = (labels) => {
+    const key = labelsKey(labels);
+    if (!metric.points[key]) {
+      metric.points[key] = {
+        labels,
+        value: 0,
+      };
+    }
+    metric.points[labelsKey(labels)].value--;
+  };
+
   const intervalReset = () => {
     //noop as a gauge should persist its values between intervals
   };
 
-  return { name, inc, dec, points: pointsFn, intervalReset };
+  return { name, inc: metric.inc, dec, points: metric.pointsFn, intervalReset };
 }
 
 function toTimeSeries(startTime, endTime, resource, metric) {

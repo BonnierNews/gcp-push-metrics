@@ -382,3 +382,12 @@ describe("labels", () => {
     });
   });
 });
+
+// TODO:
+// * Felhantering, om det inte går att skicka, om det går att skicka och inkrementering sker under tiden
+// * Loggning
+// * SIGTERM
+// * projectID från env-variabel
+// * Konfigurerbart intervall?
+// * Titta på att inte behöva skapa metricdescriptors
+// * Egen/bättre funktion iställer för uuidv4
