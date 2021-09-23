@@ -1,8 +1,19 @@
 "use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
 
-export function PushClient({ projectId }) {
+export function PushClient({ projectId, intervalSeconds } = {}) {
   //projectId, interval and instance should be options
+  projectId = projectId || process.env.PROJECT_ID;
+  if (!projectId) {
+    throw new Error("No project ID found");
+  }
+
+  if (intervalSeconds < 1) {
+    throw new Error("intervalSeconds must be at least 1");
+  }
+  if (!intervalSeconds) {
+    intervalSeconds = 60;
+  }
   const metricsClient = new MetricServiceClient();
   const name = metricsClient.projectPath(projectId);
   const metrics = [];
@@ -47,12 +58,12 @@ export function PushClient({ projectId }) {
         });
       }
 
-      setTimeout(push, 60 * 1000);
+      setTimeout(push, intervalSeconds * 1000);
     } catch (e) {
       console.log(e);
     }
   }
-  setTimeout(push, 60 * 1000);
+  setTimeout(push, intervalSeconds * 1000);
 
   process.on("SIGTERM", push.bind(null, "-exit"));
 

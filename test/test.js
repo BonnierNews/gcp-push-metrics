@@ -5,7 +5,7 @@ import { PushClient } from "../index.js";
 import events from "events";
 import sinon from "sinon";
 
-events.EventEmitter.defaultMaxListeners = 15;
+events.EventEmitter.defaultMaxListeners = 20;
 const sandbox = sinon.createSandbox();
 const metricsRequests = [];
 let clock;
@@ -83,6 +83,72 @@ describe("with a metric", () => {
       const labels = resource.labels;
       expect(labels.node_id).to.have.string("-exit");
     });
+  });
+});
+
+describe("with projectId not set in options but exists in from env.PROJECT_ID", () => {
+  before(async () => {
+    fixture();
+    process.env.PROJECT_ID = "projectFromEnv";
+    const client = PushClient();
+    client.counter("num_requests");
+    clock.tick(60 * 1000);
+  });
+
+  after(() => {
+    delete process.env.PROJECT_ID;
+  });
+
+  it("uses project ID from env", async () => {
+    expect(metricsRequests[0]).to.have.property("name", "projectpath:projectFromEnv");
+    console.log(metricsRequests[0]);
+    expect(metricsRequests[0].timeSeries[0].resource.labels).to.have.property(
+      "project_id",
+      "projectFromEnv"
+    );
+  });
+});
+
+describe("without projectId", () => {
+  before(async () => {
+    fixture();
+  });
+
+  it("throws an error", async () => {
+    expect(PushClient).to.throw(/project ID/);
+  });
+});
+
+describe("with a intervalSeconds set to 120", () => {
+  before(async () => {
+    fixture();
+    const client = PushClient({ projectId: "myproject", intervalSeconds: 120 });
+    client.counter("num_requests");
+  });
+
+  describe("after 60 seconds", () => {
+    before(() => clock.tick(60 * 1000));
+    it("should not have pushed", () => {
+      expect(metricsRequests).to.have.lengthOf(0);
+    });
+  });
+
+  describe("after 60 more seconds", () => {
+    before(() => clock.tick(60 * 1000));
+    it("should have pushed", () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+    });
+  });
+});
+
+describe("with a intervalSeconds set to 0", () => {
+  before(async () => {
+    fixture();
+  });
+
+  it("throws an error", async () => {
+    const fn = PushClient.bind(null, { projectId: "myProject", intervalSeconds: 0 });
+    expect(fn).to.throw(/intervalSeconds/);
   });
 });
 
@@ -403,21 +469,3 @@ describe("labels", () => {
     });
   });
 });
-
-// describe("shutdown handling", () => {
-//   before(fixture);
-//   it("", async () => {
-//     const client = PushClient({ projectId: "myproject" });
-//     client.counter("num_requests");
-//     process.emit("SIGTERM");
-//     expect(metricsRequests).to.have.lengthOf(1);
-//   });
-// });
-
-// TODO:
-// * Felhantering, om det inte går att skicka, om det går att skicka och inkrementering sker under tiden
-// * Loggning
-// * SIGTERM
-// * projectID från env-variabel
-// * Konfigurerbart intervall?
-// * Titta på att inte behöva skapa metricdescriptors
