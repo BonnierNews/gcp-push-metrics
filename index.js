@@ -2,7 +2,6 @@
 import { MetricServiceClient } from "@google-cloud/monitoring";
 
 export function PushClient({ projectId, intervalSeconds, logger } = {}) {
-  //projectId, interval and instance should be options
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
     throw new Error("No project ID found");
