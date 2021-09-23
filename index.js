@@ -138,12 +138,16 @@ function Metric(name, labels) {
 
 function Counter(name, labels) {
   const metric = Metric(name, labels);
+
   const intervalReset = () => {
     Object.values(metric.points).forEach((point) => {
       point.value = 0;
     });
   };
-  return { name, inc: metric.inc, points: metric.pointsFn, intervalReset };
+
+  const kind = () => "CUMULATIVE";
+
+  return { name, inc: metric.inc, points: metric.pointsFn, intervalReset, kind };
 }
 
 function Gauge(name, labels) {
@@ -157,6 +161,7 @@ function Gauge(name, labels) {
         value: 0,
       };
     }
+
     metric.points[labelsKey(labels)].value--;
   };
 
@@ -164,7 +169,9 @@ function Gauge(name, labels) {
     //noop as a gauge should persist its values between intervals
   };
 
-  return { name, inc: metric.inc, dec, points: metric.pointsFn, intervalReset };
+  const kind = () => "GAUGE";
+
+  return { name, inc: metric.inc, dec, points: metric.pointsFn, intervalReset, kind };
 }
 
 function toTimeSeries(startTime, endTime, resource, metric) {
@@ -174,6 +181,7 @@ function toTimeSeries(startTime, endTime, resource, metric) {
         type: `custom.googleapis.com/${metric.name}`,
         labels: point.labels,
       },
+      metricKind: metric.kind(),
       resource,
       points: [
         {

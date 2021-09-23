@@ -219,6 +219,10 @@ describe("counter", () => {
       expect(counterSeries.metric).to.have.property("type", "custom.googleapis.com/num_requests");
     });
 
+    it("should include a metricKind as 'CUMULATIVE'", () => {
+      expect(counterSeries).to.have.property("metricKind", "CUMULATIVE");
+    });
+
     let point;
     it("should include a single point", () => {
       expect(counterSeries).to.have.property("points").to.be.an("array").to.have.lengthOf(1);
@@ -316,6 +320,10 @@ describe("gauge", () => {
         "type",
         "custom.googleapis.com/outgoing_requests"
       );
+    });
+
+    it("should include a metricKind as 'GAUGE'", () => {
+      expect(counterSeries).to.have.property("metricKind", "GAUGE");
     });
 
     it("should include a resource", () => {
