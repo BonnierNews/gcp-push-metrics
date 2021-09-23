@@ -10,7 +10,13 @@ const sandbox = sinon.createSandbox();
 const metricsRequests = [];
 let clock;
 
-function fixture() {
+function fixture(createTimeSeriesStub) {
+  if (!createTimeSeriesStub) {
+    createTimeSeriesStub = async (request) => {
+      metricsRequests.push(request);
+      return "something";
+    };
+  }
   metricsRequests.length = 0;
   sandbox.restore();
   clock = sinon.useFakeTimers();
@@ -18,16 +24,13 @@ function fixture() {
   stub.projectPath = (path) => {
     return `projectpath:${path}`;
   };
-  stub.createTimeSeries = async (request) => {
-    metricsRequests.push(request);
-    return "something";
-  };
+  stub.createTimeSeries = createTimeSeriesStub;
 }
 
 after(() => clock.restore);
 
 describe("initialized and no metrics", () => {
-  before(fixture);
+  before(() => fixture());
   it("does not push after the interval", async () => {
     PushClient({ projectId: "myproject" });
     clock.tick(61 * 1000);
@@ -36,7 +39,7 @@ describe("initialized and no metrics", () => {
 });
 
 describe("with a metric", () => {
-  before(async () => {
+  before(() => {
     fixture();
     const client = PushClient({ projectId: "myproject" });
     client.counter("num_requests");
@@ -152,7 +155,43 @@ describe("with a intervalSeconds set to 0", () => {
   });
 });
 
-describe("with a single counter", () => {
+describe("with a logger", () => {
+  const errors = [];
+  before(() => {
+    const createTimeSeriesStub = async function () {
+      throw new Error("from client");
+    };
+    fixture(createTimeSeriesStub);
+    const logger = {
+      debug() {},
+      error(msg) {
+        errors.push(msg);
+      },
+    };
+    const client = PushClient({ projectId: "myproject", logger: logger });
+    client.counter("num_requests");
+  });
+
+  describe("log error when pushing fails", () => {
+    before(() => clock.tick(60 * 1000));
+    it("should log error", () => {
+      expect(errors).to.have.lengthOf(1);
+    });
+  });
+});
+
+describe("with invalid logger", () => {
+  before(async () => {
+    fixture();
+  });
+
+  it("throws an error", async () => {
+    const fn = PushClient.bind(null, { projectId: "myProject", logger: {} });
+    expect(fn).to.throw(/logger/);
+  });
+});
+
+describe("counter", () => {
   let timeOfInit;
   let counter;
   before(() => {

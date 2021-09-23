@@ -1,7 +1,7 @@
 "use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
 
-export function PushClient({ projectId, intervalSeconds } = {}) {
+export function PushClient({ projectId, intervalSeconds, logger } = {}) {
   //projectId, interval and instance should be options
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
@@ -14,6 +14,18 @@ export function PushClient({ projectId, intervalSeconds } = {}) {
   if (!intervalSeconds) {
     intervalSeconds = 60;
   }
+
+  if (!logger) {
+    logger = {
+      debug() {},
+      error() {},
+    };
+  }
+
+  if (!logger.debug || !logger.error) {
+    throw new Error("logger must have methods 'debug' and 'error'");
+  }
+
   const metricsClient = new MetricServiceClient();
   const name = metricsClient.projectPath(projectId);
   const metrics = [];
@@ -41,6 +53,7 @@ export function PushClient({ projectId, intervalSeconds } = {}) {
   };
 
   async function push(nodeIdSuffix) {
+    logger.debug("PushClient: Gathering and pushing metrics");
     try {
       if (nodeIdSuffix) {
         resource.labels.node_id += nodeIdSuffix;
@@ -51,16 +64,19 @@ export function PushClient({ projectId, intervalSeconds } = {}) {
         .flat();
       metrics.forEach((metric) => metric.intervalReset());
       intervalStart = intervalEnd;
+      logger.debug(`PushClient: Found ${timeSeries.length} time series`);
       if (timeSeries.length > 0) {
+        logger.debug(`PushClient: Pushing metrics to StackDriver`);
         await metricsClient.createTimeSeries({
           name,
           timeSeries,
         });
+        logger.debug(`PushClient: Done pushing metrics to StackDriver`);
       }
 
       setTimeout(push, intervalSeconds * 1000);
     } catch (e) {
-      console.log(e);
+      logger.error(`PushClient: Unable to push metrics: ${e}`);
     }
   }
   setTimeout(push, intervalSeconds * 1000);
