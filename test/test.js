@@ -2,7 +2,10 @@
 import monitoring from "@google-cloud/monitoring";
 import { expect } from "chai";
 import { PushClient } from "../index.js";
+import events from "events";
 import sinon from "sinon";
+
+events.EventEmitter.defaultMaxListeners = 15;
 const sandbox = sinon.createSandbox();
 const metricsRequests = [];
 let clock;
@@ -32,24 +35,54 @@ describe("initialized and no metrics", () => {
   });
 });
 
-describe("with a metric after the interval", () => {
+describe("with a metric", () => {
   before(async () => {
     fixture();
     const client = PushClient({ projectId: "myproject" });
     client.counter("num_requests");
-    clock.tick(60 * 1000);
   });
 
-  it("pushes once to StackDriver", async () => {
-    expect(metricsRequests).to.have.lengthOf(1);
+  describe("after the interval", () => {
+    before(() => clock.tick(60 * 1000));
+    it("pushes once to StackDriver", async () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+    });
+
+    it("sends name as the project path", async () => {
+      expect(metricsRequests[0]).to.have.property("name", "projectpath:myproject");
+    });
+
+    it("sends timeSeries", async () => {
+      expect(metricsRequests[0]).to.have.property("timeSeries").to.be.an("array");
+    });
+
+    it("should include a resource", () => {
+      const counterSeries = metricsRequests[0].timeSeries[0];
+      expect(counterSeries).to.have.property("resource");
+      const resource = counterSeries.resource;
+      expect(resource).to.have.property("labels");
+      const labels = resource.labels;
+      expect(labels).to.have.property("project_id", "myproject");
+      expect(labels).to.have.property("node_id").to.be.a("string");
+      expect(labels.node_id.length).to.be.gt(8);
+      expect(labels).to.have.property("location", "global");
+      expect(labels).to.have.property("namespace", "na");
+    });
   });
 
-  it("sends name as the project path", async () => {
-    expect(metricsRequests[0]).to.have.property("name", "projectpath:myproject");
-  });
+  describe("when SIGTERM is sent", () => {
+    before(() => process.emit("SIGTERM"));
 
-  it("sends timeSeries", async () => {
-    expect(metricsRequests[0]).to.have.property("timeSeries").to.be.an("array");
+    it("pushes again to StackDriver", async () => {
+      expect(metricsRequests).to.have.lengthOf(2);
+    });
+
+    it("should append '-exit' to the node_id of the resource", () => {
+      const counterSeries = metricsRequests[1].timeSeries[0];
+      const resource = counterSeries.resource;
+      const labels = resource.labels;
+      expect(labels.node_id).to.have.string("-exit");
+    });
   });
 });
 
@@ -79,18 +112,6 @@ describe("with a single counter", () => {
     it("should include a metric type as 'custom.googleapis.com/${the_counter_name}", () => {
       expect(counterSeries).to.have.property("metric");
       expect(counterSeries.metric).to.have.property("type", "custom.googleapis.com/num_requests");
-    });
-
-    it("should include a resource", () => {
-      expect(counterSeries).to.have.property("resource");
-      const resource = counterSeries.resource;
-      expect(resource).to.have.property("labels");
-      const labels = resource.labels;
-      expect(labels).to.have.property("project_id", "myproject");
-      expect(labels).to.have.property("node_id").to.be.a("string");
-      expect(labels.node_id.length).to.be.gt(8);
-      expect(labels).to.have.property("location", "global");
-      expect(labels).to.have.property("namespace", "na");
     });
 
     let point;
@@ -383,6 +404,16 @@ describe("labels", () => {
   });
 });
 
+// describe("shutdown handling", () => {
+//   before(fixture);
+//   it("", async () => {
+//     const client = PushClient({ projectId: "myproject" });
+//     client.counter("num_requests");
+//     process.emit("SIGTERM");
+//     expect(metricsRequests).to.have.lengthOf(1);
+//   });
+// });
+
 // TODO:
 // * Felhantering, om det inte går att skicka, om det går att skicka och inkrementering sker under tiden
 // * Loggning
@@ -390,4 +421,3 @@ describe("labels", () => {
 // * projectID från env-variabel
 // * Konfigurerbart intervall?
 // * Titta på att inte behöva skapa metricdescriptors
-// * Egen/bättre funktion iställer för uuidv4

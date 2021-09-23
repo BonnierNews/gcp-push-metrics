@@ -23,14 +23,17 @@ export function PushClient({ projectId }) {
   const resource = {
     labels: {
       project_id: projectId,
-      node_id: uuidv4(),
+      node_id: randomId(),
       location: "global",
       namespace: "na",
     },
   };
 
-  async function push() {
+  async function push(nodeIdSuffix) {
     try {
+      if (nodeIdSuffix) {
+        resource.labels.node_id += nodeIdSuffix;
+      }
       intervalEnd = new Date();
       let timeSeries = metrics
         .map(toTimeSeries.bind(null, intervalStart, intervalEnd, resource))
@@ -50,6 +53,8 @@ export function PushClient({ projectId }) {
     }
   }
   setTimeout(push, 60 * 1000);
+
+  process.on("SIGTERM", push.bind(null, "-exit"));
 
   return { counter, gauge, push };
 }
@@ -157,12 +162,9 @@ function toTimeSeries(startTime, endTime, resource, metric) {
     };
   });
 }
-function uuidv4() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    var r = (Math.random() * 16) | 0,
-      v = c == "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+
+function randomId() {
+  return Math.random().toString(36).substr(2, 11);
 }
 
 function labelCombinations(labels) {
