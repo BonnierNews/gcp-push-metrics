@@ -1,206 +1,23 @@
 "use strict";
-import monitoring from "@google-cloud/monitoring";
+
 import { expect } from "chai";
 import { PushClient } from "../index.js";
-import events from "events";
-import sinon from "sinon";
-
-events.EventEmitter.defaultMaxListeners = 20;
-const sandbox = sinon.createSandbox();
-const metricsRequests = [];
-let clock;
-
-function fixture(createTimeSeriesStub) {
-  if (!createTimeSeriesStub) {
-    createTimeSeriesStub = async (request) => {
-      metricsRequests.push(request);
-      return "something";
-    };
-  }
-  metricsRequests.length = 0;
-  sandbox.restore();
-  clock = sinon.useFakeTimers();
-  const stub = sandbox.stub(monitoring.MetricServiceClient.prototype);
-  stub.projectPath = (path) => {
-    return `projectpath:${path}`;
-  };
-  stub.createTimeSeries = createTimeSeriesStub;
-}
-
-after(() => clock.restore);
-
-describe("initialized and no metrics", () => {
-  before(() => fixture());
-  it("does not push after the interval", async () => {
-    PushClient({ projectId: "myproject" });
-    clock.tick(61 * 1000);
-    expect(metricsRequests).to.have.lengthOf(0);
-  });
-});
-
-describe("with a metric", () => {
-  before(() => {
-    fixture();
-    const client = PushClient({ projectId: "myproject" });
-    client.counter("num_requests");
-  });
-
-  describe("after the interval", () => {
-    before(() => clock.tick(60 * 1000));
-    it("pushes once to StackDriver", async () => {
-      expect(metricsRequests).to.have.lengthOf(1);
-    });
-
-    it("sends name as the project path", async () => {
-      expect(metricsRequests[0]).to.have.property("name", "projectpath:myproject");
-    });
-
-    it("sends timeSeries", async () => {
-      expect(metricsRequests[0]).to.have.property("timeSeries").to.be.an("array");
-    });
-
-    it("should include a resource", () => {
-      const counterSeries = metricsRequests[0].timeSeries[0];
-      expect(counterSeries).to.have.property("resource");
-      const resource = counterSeries.resource;
-      expect(resource).to.have.property("labels");
-      const labels = resource.labels;
-      expect(labels).to.have.property("project_id", "myproject");
-      expect(labels).to.have.property("node_id").to.be.a("string");
-      expect(labels.node_id.length).to.be.gt(8);
-      expect(labels).to.have.property("location", "global");
-      expect(labels).to.have.property("namespace", "na");
-    });
-  });
-
-  describe("when SIGTERM is sent", () => {
-    before(() => process.emit("SIGTERM"));
-
-    it("pushes again to StackDriver", async () => {
-      expect(metricsRequests).to.have.lengthOf(2);
-    });
-
-    it("should append '-exit' to the node_id of the resource", () => {
-      const counterSeries = metricsRequests[1].timeSeries[0];
-      const resource = counterSeries.resource;
-      const labels = resource.labels;
-      expect(labels.node_id).to.have.string("-exit");
-    });
-  });
-});
-
-describe("with projectId not set in options but exists in from env.PROJECT_ID", () => {
-  before(async () => {
-    fixture();
-    process.env.PROJECT_ID = "projectFromEnv";
-    const client = PushClient();
-    client.counter("num_requests");
-    clock.tick(60 * 1000);
-  });
-
-  after(() => {
-    delete process.env.PROJECT_ID;
-  });
-
-  it("uses project ID from env", async () => {
-    expect(metricsRequests[0]).to.have.property("name", "projectpath:projectFromEnv");
-    console.log(metricsRequests[0]);
-    expect(metricsRequests[0].timeSeries[0].resource.labels).to.have.property(
-      "project_id",
-      "projectFromEnv"
-    );
-  });
-});
-
-describe("without projectId", () => {
-  before(async () => {
-    fixture();
-  });
-
-  it("throws an error", async () => {
-    expect(PushClient).to.throw(/project ID/);
-  });
-});
-
-describe("with a intervalSeconds set to 120", () => {
-  before(async () => {
-    fixture();
-    const client = PushClient({ projectId: "myproject", intervalSeconds: 120 });
-    client.counter("num_requests");
-  });
-
-  describe("after 60 seconds", () => {
-    before(() => clock.tick(60 * 1000));
-    it("should not have pushed", () => {
-      expect(metricsRequests).to.have.lengthOf(0);
-    });
-  });
-
-  describe("after 60 more seconds", () => {
-    before(() => clock.tick(60 * 1000));
-    it("should have pushed", () => {
-      expect(metricsRequests).to.have.lengthOf(1);
-    });
-  });
-});
-
-describe("with a intervalSeconds set to 0", () => {
-  before(async () => {
-    fixture();
-  });
-
-  it("throws an error", async () => {
-    const fn = PushClient.bind(null, { projectId: "myProject", intervalSeconds: 0 });
-    expect(fn).to.throw(/intervalSeconds/);
-  });
-});
-
-describe("with a logger", () => {
-  const errors = [];
-  before(() => {
-    const createTimeSeriesStub = async function () {
-      throw new Error("from client");
-    };
-    fixture(createTimeSeriesStub);
-    const logger = {
-      debug() {},
-      error(msg) {
-        errors.push(msg);
-      },
-    };
-    const client = PushClient({ projectId: "myproject", logger: logger });
-    client.counter("num_requests");
-  });
-
-  describe("log error when pushing fails", () => {
-    before(() => clock.tick(60 * 1000));
-    it("should log error", () => {
-      expect(errors).to.have.lengthOf(1);
-    });
-  });
-});
-
-describe("with invalid logger", () => {
-  before(async () => {
-    fixture();
-  });
-
-  it("throws an error", async () => {
-    const fn = PushClient.bind(null, { projectId: "myProject", logger: {} });
-    expect(fn).to.throw(/logger/);
-  });
-});
+import fixture from "./helpers/fixture.js";
 
 describe("counter", () => {
   let timeOfInit;
   let counter;
+  let clock, metricsRequests;
+
   before(() => {
-    fixture();
+    ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
     counter = client.counter("num_requests");
     clock.tick(60 * 1000);
   });
+
+  after(() => clock.restore);
 
   let counterSeries;
   it("sends a single timeSeries", async () => {
@@ -298,13 +115,17 @@ describe("counter", () => {
 describe("gauge", () => {
   let timeOfInit;
   let gauge;
+  let clock, metricsRequests;
+
   before(() => {
-    fixture();
+    ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
     gauge = client.gauge("outgoing_requests");
     clock.tick(60 * 1000);
   });
+
+  after(() => clock.restore);
 
   let counterSeries;
   it("sends a single timeSeries", async () => {
@@ -409,24 +230,27 @@ describe("gauge", () => {
   });
 });
 
-describe("labels", () => {
-  [
-    {
-      method: (client) => client.counter,
-      type: "counter",
-    },
-    {
-      method: (client) => client.gauge,
-      type: "gauge",
-    },
-  ].forEach((metricType) => {
+[
+  {
+    method: (client) => client.counter,
+    type: "counter",
+  },
+  {
+    method: (client) => client.gauge,
+    type: "gauge",
+  },
+].forEach((metricType) => {
+  describe(`${metricType.type} with labels`, () => {
+    let clock, metricsRequests;
     describe(`single ${metricType.type} created without labels object, not incremented`, () => {
       before(() => {
-        fixture();
+        ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
         metricType.method(client)("num_purchases");
         clock.tick(60 * 1000);
       });
+
+      after(() => clock.restore);
 
       it("pushes a time series", () => {
         expect(metricsRequests).to.have.lengthOf(1);
@@ -436,11 +260,13 @@ describe("labels", () => {
 
     describe(`single ${metricType.type} created with empty labels object, not incremented`, () => {
       before(() => {
-        fixture();
+        ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
         metricType.method(client)("responses", {});
         clock.tick(60 * 1000);
       });
+
+      after(() => clock.restore);
 
       it("does not push", () => {
         expect(metricsRequests).to.have.lengthOf(0);
@@ -449,14 +275,16 @@ describe("labels", () => {
 
     describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremeneted`, () => {
       before(() => {
-        fixture();
+        ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
         metricType.method(client)("responses", {});
         metricType.method(client)("num_purchases");
         clock.tick(60 * 1000);
       });
 
-      it("pushes a single time series for the ${metricType.type} created labels object", () => {
+      after(() => clock.restore);
+
+      it("pushes a single time series for the ${metricType.type} created without labels object", () => {
         expect(metricsRequests).to.have.lengthOf(1);
         expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
         const series = metricsRequests[0].timeSeries[0];
@@ -466,7 +294,7 @@ describe("labels", () => {
 
     describe(`${metricType.type} created with two labels with two values, not incremented`, () => {
       before(() => {
-        fixture();
+        ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
         metricType.method(client)("responses", {
           code: ["2xx", "3xx"],
@@ -474,6 +302,8 @@ describe("labels", () => {
         });
         clock.tick(60 * 1000);
       });
+
+      after(() => clock.restore);
 
       it("pushes four time series", () => {
         expect(metricsRequests).to.have.lengthOf(1);
@@ -500,12 +330,14 @@ describe("labels", () => {
 
     describe(`${metricType.type} created with one label with two values, incremented without labels`, () => {
       before(() => {
-        fixture();
+        ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
         const metric = metricType.method(client)("responses", { code: ["2xx", "3xx"] });
         metric.inc();
         clock.tick(60 * 1000);
       });
+
+      after(() => clock.restore);
 
       it("pushes three time series, one without labels", () => {
         expect(metricsRequests).to.have.lengthOf(1);

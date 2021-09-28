@@ -1,4 +1,5 @@
 "use strict";
+import events from "events";
 
 // Make sure dates are displayed in the correct timezone
 process.env.TZ = "Europe/Stockholm";
@@ -14,3 +15,7 @@ chai.config.truncateThreshold = 0;
 chai.config.includeStack = true;
 
 global.expect = chai.expect;
+
+// This is needed as we create many clients within the tests
+// and they all listen to SIGTERM
+events.EventEmitter.defaultMaxListeners = 100;

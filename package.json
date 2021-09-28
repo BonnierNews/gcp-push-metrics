@@ -23,6 +23,7 @@
     "sinon": "^11.1.2"
   },
   "dependencies": {
-    "@google-cloud/monitoring": "^2.3.5"
+    "@google-cloud/monitoring": "^2.3.5",
+    "stats-lite": "^2.2.0"
   }
 }

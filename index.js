@@ -1,5 +1,6 @@
 "use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
+import stats from "stats-lite";
 
 export function PushClient({ projectId, intervalSeconds, logger } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
@@ -30,6 +31,7 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
   const metrics = [];
   let intervalStart = new Date();
   let intervalEnd;
+
   const counter = (name, labels) => {
     const counter = Counter(name, labels);
     metrics.push(counter);
@@ -40,6 +42,12 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
     const gauge = Gauge(name, labels);
     metrics.push(gauge);
     return gauge;
+  };
+
+  const summary = (name, labels) => {
+    const summary = Summary(name, labels);
+    metrics.push(summary);
+    return summary;
   };
 
   const resource = {
@@ -59,7 +67,7 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
       }
       intervalEnd = new Date();
       let timeSeries = metrics
-        .map(toTimeSeries.bind(null, intervalStart, intervalEnd, resource))
+        .map((metric) => metric.toTimeSeries(intervalStart, intervalEnd, resource))
         .flat();
       metrics.forEach((metric) => metric.intervalReset());
       intervalStart = intervalEnd;
@@ -82,11 +90,11 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
 
   process.on("SIGTERM", push.bind(null, "-exit"));
 
-  return { counter, gauge, push };
+  return { counter, gauge, summary, push };
 }
 
 // "Base" factory function used by Counter and Gauge
-function Metric(name, labels) {
+function Metric(kind, name, labels) {
   let points = {};
 
   if (labels) {
@@ -132,11 +140,35 @@ function Metric(name, labels) {
     return Object.values(points);
   };
 
-  return { name, inc, dec, points, pointsFn };
+  const toTimeSeries = (startTime, endTime, resource) => {
+    return pointsFn().map((point) => {
+      return {
+        metric: {
+          type: `custom.googleapis.com/${name}`,
+          labels: point.labels,
+        },
+        metricKind: kind,
+        resource,
+        points: [
+          {
+            interval: {
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+            },
+            value: {
+              int64Value: point.value,
+            },
+          },
+        ],
+      };
+    });
+  };
+
+  return { name, inc, dec, points, pointsFn, toTimeSeries };
 }
 
 function Counter(name, labels) {
-  const metric = Metric(name, labels);
+  const metric = Metric("CUMULATIVE", name, labels);
 
   const intervalReset = () => {
     Object.values(metric.points).forEach((point) => {
@@ -144,13 +176,17 @@ function Counter(name, labels) {
     });
   };
 
-  const kind = () => "CUMULATIVE";
-
-  return { name, inc: metric.inc, points: metric.pointsFn, intervalReset, kind };
+  return {
+    name,
+    inc: metric.inc,
+    points: metric.pointsFn,
+    intervalReset,
+    toTimeSeries: metric.toTimeSeries,
+  };
 }
 
 function Gauge(name, labels) {
-  const metric = Metric(name, labels);
+  const metric = Metric("GAUGE", name, labels);
 
   const dec = (labels) => {
     const key = labelsKey(labels);
@@ -168,33 +204,81 @@ function Gauge(name, labels) {
     //noop as a gauge should persist its values between intervals
   };
 
-  const kind = () => "GAUGE";
-
-  return { name, inc: metric.inc, dec, points: metric.pointsFn, intervalReset, kind };
+  return {
+    name,
+    inc: metric.inc,
+    dec,
+    points: metric.pointsFn,
+    intervalReset,
+    toTimeSeries: metric.toTimeSeries,
+  };
 }
 
-function toTimeSeries(startTime, endTime, resource, metric) {
-  return metric.points().map((point) => {
-    return {
-      metric: {
-        type: `custom.googleapis.com/${metric.name}`,
-        labels: point.labels,
-      },
-      metricKind: metric.kind(),
-      resource,
-      points: [
-        {
-          interval: {
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-          },
-          value: {
-            int64Value: point.value,
-          },
-        },
-      ],
+function Summary(name, options) {
+  const percentiles = (options && options.percentiles) || [50, 90, 99];
+  const series = {};
+
+  const intervalReset = () => {
+    Object.values(series).forEach((s) => {
+      s.observations.length = 0;
+    });
+  };
+
+  const observe = (observation, labels) => {
+    const key = labelsKey(labels);
+    if (!series[key]) {
+      series[key] = {
+        labels,
+        observations: [],
+      };
+    }
+    series[key].observations.push(observation);
+  };
+
+  const toTimeSeries = (startTime, endTime, resource) => {
+    return Object.values(series)
+      .filter((s) => s.observations.length)
+      .flatMap((s) => {
+        return percentiles.map((p) => {
+          const labels = Object.assign(
+            {},
+            {
+              percentile: p.toString(),
+            },
+            s.labels
+          );
+          return {
+            metric: {
+              type: `custom.googleapis.com/${name}`,
+              labels,
+            },
+            metricKind: "CUMULATIVE",
+            resource,
+            points: [
+              {
+                interval: {
+                  startTime: startTime.toISOString(),
+                  endTime: endTime.toISOString(),
+                },
+                value: {
+                  doubleValue: stats.percentile(s.observations, p / 100) || 0,
+                },
+              },
+            ],
+          };
+        });
+      });
+  };
+
+  const startTimer = (labels) => {
+    const start = process.hrtime.bigint();
+    return () => {
+      const delta = Number((process.hrtime.bigint() - start) / BigInt(1e6)) / 1e3;
+      observe(delta, labels);
     };
-  });
+  };
+
+  return { name, observe, startTimer, intervalReset, toTimeSeries };
 }
 
 function randomId() {
@@ -202,7 +286,7 @@ function randomId() {
 }
 
 function labelCombinations(labels) {
-  if (Object.keys(labels).length === 0) {
+  if (!labels || Object.keys(labels).length === 0) {
     return [];
   }
   return labelCombinationsForKeys(labels, Object.keys(labels));
