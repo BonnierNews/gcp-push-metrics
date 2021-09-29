@@ -167,8 +167,8 @@ function Metric(kind, name, labels) {
   return { name, inc, dec, points, pointsFn, toTimeSeries };
 }
 
-function Counter(name, labels) {
-  const metric = Metric("CUMULATIVE", name, labels);
+function Counter(config) {
+  const metric = Metric("CUMULATIVE", config.name, config.labels);
 
   const intervalReset = () => {
     Object.values(metric.points).forEach((point) => {
@@ -177,7 +177,6 @@ function Counter(name, labels) {
   };
 
   return {
-    name,
     inc: metric.inc,
     points: metric.pointsFn,
     intervalReset,
@@ -185,8 +184,8 @@ function Counter(name, labels) {
   };
 }
 
-function Gauge(name, labels) {
-  const metric = Metric("GAUGE", name, labels);
+function Gauge(config) {
+  const metric = Metric("GAUGE", config.name, config.labels);
 
   const dec = (labels) => {
     const key = labelsKey(labels);
@@ -205,7 +204,6 @@ function Gauge(name, labels) {
   };
 
   return {
-    name,
     inc: metric.inc,
     dec,
     points: metric.pointsFn,
@@ -214,8 +212,9 @@ function Gauge(name, labels) {
   };
 }
 
-function Summary(name, options) {
-  const percentiles = (options && options.percentiles) || [50, 90, 99];
+function Summary(config) {
+  const name = config.name;
+  const percentiles = (config && config.percentiles) || [50, 90, 99];
   const series = {};
 
   const intervalReset = () => {
@@ -278,7 +277,7 @@ function Summary(name, options) {
     };
   };
 
-  return { name, observe, startTimer, intervalReset, toTimeSeries };
+  return { observe, startTimer, intervalReset, toTimeSeries };
 }
 
 function randomId() {

@@ -12,7 +12,8 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary("response_time", {
+    summary = client.summary({
+      name: "response_time",
       percentiles: [50, 90],
     });
     summary.observe(10);
@@ -84,18 +85,20 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
 });
 
 describe("two summaries", () => {
-  let timeOfInit;
   let summary1, summary2;
   let clock, metricsRequests;
+  let timeOfInit;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary1 = client.summary("response_time", {
+    summary1 = client.summary({
+      name: "response_time",
       percentiles: [50],
     });
-    summary2 = client.summary("outbound_time", {
+    summary2 = client.summary({
+      name: "outbound_time",
       percentiles: [50],
     });
     clock.tick(60 * 1000);
@@ -154,7 +157,7 @@ describe("observed summary created without percentiles specified", () => {
   before(() => {
     ({ clock, metricsRequests } = fixture());
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary("response_time");
+    summary = client.summary({ name: "response_time" });
     summary.observe(10);
     summary.observe(20);
     summary.observe(30);
@@ -188,7 +191,8 @@ describe("summary observed with labels", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary("response_time", {
+    summary = client.summary({
+      name: "response_time",
       percentiles: [50],
     });
     summary.observe(10, { code: "2" });
@@ -200,7 +204,6 @@ describe("summary observed with labels", () => {
 
   after(() => clock.restore);
 
-  let fiftySeries, ninetySeries;
   it("sends time series for each unique label combination", async () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(3);
@@ -237,7 +240,8 @@ describe("summary.timer ended after two seconds", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary("response_time", {
+    summary = client.summary({
+      name: "response_time",
       percentiles: [50],
     });
     const end = summary.startTimer();
@@ -267,7 +271,8 @@ describe("summary.timer with labels ended after two seconds", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary("response_time", {
+    summary = client.summary({
+      name: "response_time",
       percentiles: [50],
     });
     const end = summary.startTimer({

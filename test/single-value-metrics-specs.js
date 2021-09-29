@@ -13,7 +13,7 @@ describe("counter", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    counter = client.counter("num_requests");
+    counter = client.counter({ name: "num_requests" });
     clock.tick(60 * 1000);
   });
 
@@ -121,7 +121,7 @@ describe("gauge", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    gauge = client.gauge("outgoing_requests");
+    gauge = client.gauge({ name: "outgoing_requests" });
     clock.tick(60 * 1000);
   });
 
@@ -246,7 +246,7 @@ describe("gauge", () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
-        metricType.method(client)("num_purchases");
+        metricType.method(client)({ name: "num_purchases" });
         clock.tick(60 * 1000);
       });
 
@@ -262,7 +262,7 @@ describe("gauge", () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
-        metricType.method(client)("responses", {});
+        metricType.method(client)({ name: "responses", labels: {} });
         clock.tick(60 * 1000);
       });
 
@@ -277,8 +277,8 @@ describe("gauge", () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
-        metricType.method(client)("responses", {});
-        metricType.method(client)("num_purchases");
+        metricType.method(client)({ name: "responses", labels: {} });
+        metricType.method(client)({ name: "num_purchases" });
         clock.tick(60 * 1000);
       });
 
@@ -296,9 +296,12 @@ describe("gauge", () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
-        metricType.method(client)("responses", {
-          code: ["2xx", "3xx"],
-          source: ["cdn", "internal"],
+        metricType.method(client)({
+          name: "responses",
+          labels: {
+            code: ["2xx", "3xx"],
+            source: ["cdn", "internal"],
+          },
         });
         clock.tick(60 * 1000);
       });
@@ -332,7 +335,10 @@ describe("gauge", () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = PushClient({ projectId: "myproject" });
-        const metric = metricType.method(client)("responses", { code: ["2xx", "3xx"] });
+        const metric = metricType.method(client)({
+          name: "responses",
+          labels: { code: ["2xx", "3xx"] },
+        });
         metric.inc();
         clock.tick(60 * 1000);
       });
