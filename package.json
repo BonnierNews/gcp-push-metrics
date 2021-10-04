@@ -1,6 +1,6 @@
 {
   "name": "@bonniernews/gcp-push-metrics",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Push metrics to GCP/StackDriver.",
   "main": "index.js",
   "type": "module",

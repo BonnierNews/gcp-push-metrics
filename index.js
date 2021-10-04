@@ -4,7 +4,7 @@ import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 
-export function PushClient({ projectId, intervalSeconds, logger } = {}) {
+export default function PushClient({ projectId, intervalSeconds, logger } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
     throw new Error("No project ID found");
