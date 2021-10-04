@@ -11,7 +11,7 @@ describe("counter", () => {
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
+    timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
     counter = client.counter({ name: "num_requests" });
     clock.tick(60 * 1000);
@@ -52,12 +52,12 @@ describe("counter", () => {
         expect(point.value).to.have.property("int64Value").eql(0);
       });
 
-      it("should have an interval from time of creating the client to now", () => {
+      it("should have an interval from time of creating the metric to now", () => {
         expect(point).to.have.property("interval");
         expect(point.interval).to.have.property("startTime");
-        expect(Date.parse(point.interval.startTime)).to.eql(timeOfInit);
+        expect(point.interval.startTime.seconds).to.eql(timeOfInit);
         expect(point.interval).to.have.property("endTime");
-        expect(Date.parse(point.interval.endTime)).to.eql(Date.now());
+        expect(point.interval.endTime.seconds).to.eql(Date.now() / 1000);
       });
     });
   });
@@ -72,10 +72,10 @@ describe("counter", () => {
     });
 
     describe("sent time series", () => {
-      it("should have an interval from time of the previous sending to now", () => {
+      it("should have an interval from when the metric was created to now", () => {
         const interval = metricsRequests[1].timeSeries[0].points[0].interval;
-        expect(Date.parse(interval.startTime)).to.eql(timeOfInit + 60 * 1000);
-        expect(Date.parse(interval.endTime)).to.eql(Date.now());
+        expect(interval.startTime.seconds).to.eql(timeOfInit);
+        expect(interval.endTime.seconds).to.eql(Date.now() / 1000);
       });
     });
   });
@@ -106,8 +106,8 @@ describe("counter", () => {
       expect(metricsRequests).to.have.lengthOf(4);
     });
 
-    it("should have pushed the metric with 1 as value", () => {
-      expect(metricsRequests[3].timeSeries[0].points[0].value.int64Value).to.eql(1);
+    it("should have pushed the metric with 3 as value", () => {
+      expect(metricsRequests[3].timeSeries[0].points[0].value.int64Value).to.eql(3);
     });
   });
 });
@@ -119,7 +119,7 @@ describe("gauge", () => {
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
+    timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
     gauge = client.gauge({ name: "outgoing_requests" });
     clock.tick(60 * 1000);
@@ -150,6 +150,7 @@ describe("gauge", () => {
     it("should include a resource", () => {
       expect(counterSeries).to.have.property("resource");
       const resource = counterSeries.resource;
+      expect(resource).to.have.property("type", "generic_node");
       expect(resource).to.have.property("labels");
       const labels = resource.labels;
       expect(labels).to.have.property("project_id", "myproject");
@@ -171,12 +172,11 @@ describe("gauge", () => {
         expect(point.value).to.have.property("int64Value").eql(0);
       });
 
-      it("should have an interval from time of creating the client to now", () => {
+      it("should have an interval without startTime and now as endTime", () => {
         expect(point).to.have.property("interval");
-        expect(point.interval).to.have.property("startTime");
-        expect(Date.parse(point.interval.startTime)).to.eql(timeOfInit);
+        expect(point.interval).to.not.have.property("startTime");
         expect(point.interval).to.have.property("endTime");
-        expect(Date.parse(point.interval.endTime)).to.eql(Date.now());
+        expect(point.interval.endTime.seconds).to.eql(Date.now() / 1000);
       });
     });
   });

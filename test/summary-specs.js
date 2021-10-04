@@ -10,11 +10,11 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
+    timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
     summary = client.summary({
       name: "response_time",
-      percentiles: [50, 90],
+      percentiles: [0.5, 0.9],
     });
     summary.observe(10);
     summary.observe(20);
@@ -40,8 +40,8 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
       expect(fiftySeries.metric).to.have.property("type", "custom.googleapis.com/response_time");
     });
 
-    it("should include a metricKind as 'CUMULATIVE'", () => {
-      expect(fiftySeries).to.have.property("metricKind", "CUMULATIVE");
+    it("should include a metricKind as 'GAUGE'", () => {
+      expect(fiftySeries).to.have.property("metricKind", "GAUGE");
     });
 
     it("should include a resource", () => {
@@ -66,12 +66,11 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
       expect(point.value).to.have.property("doubleValue").eql(20);
     });
 
-    it("should have an interval from when the client was created to now", () => {
+    it("should have an interval without start time and end time as now", () => {
       expect(point).to.have.property("interval");
-      expect(point.interval).to.have.property("startTime");
-      expect(Date.parse(point.interval.startTime)).to.eql(timeOfInit);
+      expect(point.interval).to.not.have.property("startTime");
       expect(point.interval).to.have.property("endTime");
-      expect(Date.parse(point.interval.endTime)).to.eql(Date.now());
+      expect(point.interval.endTime.seconds).to.eql(Date.now() / 1000);
     });
   });
 
@@ -95,11 +94,11 @@ describe("two summaries", () => {
     const client = PushClient({ projectId: "myproject" });
     summary1 = client.summary({
       name: "response_time",
-      percentiles: [50],
+      percentiles: [0.5],
     });
     summary2 = client.summary({
       name: "outbound_time",
-      percentiles: [50],
+      percentiles: [0.5],
     });
     clock.tick(60 * 1000);
   });
@@ -193,7 +192,7 @@ describe("summary observed with labels", () => {
     const client = PushClient({ projectId: "myproject" });
     summary = client.summary({
       name: "response_time",
-      percentiles: [50],
+      percentiles: [0.5],
     });
     summary.observe(10, { code: "2" });
     summary.observe(10, { code: "2" });
@@ -242,7 +241,7 @@ describe("summary.timer ended after two seconds", () => {
     const client = PushClient({ projectId: "myproject" });
     summary = client.summary({
       name: "response_time",
-      percentiles: [50],
+      percentiles: [0.5],
     });
     const end = summary.startTimer();
     setTimeout(end, 2000);
@@ -273,7 +272,7 @@ describe("summary.timer with labels ended after two seconds", () => {
     const client = PushClient({ projectId: "myproject" });
     summary = client.summary({
       name: "response_time",
-      percentiles: [50],
+      percentiles: [0.5],
     });
     const end = summary.startTimer({
       code: "2xx",

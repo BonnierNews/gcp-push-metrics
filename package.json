@@ -11,8 +11,8 @@
     "type": "git",
     "url": "git+https://github.com/BonnierNews/gcp-push-metrics.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Bonnier News",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/BonnierNews/gcp-push-metrics/issues"
   },
@@ -23,7 +23,6 @@
     "sinon": "^11.1.2"
   },
   "dependencies": {
-    "@google-cloud/monitoring": "^2.3.5",
-    "stats-lite": "^2.2.0"
+    "@google-cloud/monitoring": "^2.3.5"
   }
 }
