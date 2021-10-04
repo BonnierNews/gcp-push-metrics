@@ -4,15 +4,13 @@ import { PushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 
 describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have been recorded", () => {
-  let timeOfInit;
   let summary;
   let clock, metricsRequests;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary({
+    summary = client.Summary({
       name: "response_time",
       percentiles: [0.5, 0.9],
     });
@@ -92,11 +90,11 @@ describe("two summaries", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary1 = client.summary({
+    summary1 = client.Summary({
       name: "response_time",
       percentiles: [0.5],
     });
-    summary2 = client.summary({
+    summary2 = client.Summary({
       name: "outbound_time",
       percentiles: [0.5],
     });
@@ -156,7 +154,7 @@ describe("observed summary created without percentiles specified", () => {
   before(() => {
     ({ clock, metricsRequests } = fixture());
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary({ name: "response_time" });
+    summary = client.Summary({ name: "response_time" });
     summary.observe(10);
     summary.observe(20);
     summary.observe(30);
@@ -190,7 +188,7 @@ describe("summary observed with labels", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary({
+    summary = client.Summary({
       name: "response_time",
       percentiles: [0.5],
     });
@@ -239,7 +237,7 @@ describe("summary.timer ended after two seconds", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary({
+    summary = client.Summary({
       name: "response_time",
       percentiles: [0.5],
     });
@@ -270,7 +268,7 @@ describe("summary.timer with labels ended after two seconds", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now();
     const client = PushClient({ projectId: "myproject" });
-    summary = client.summary({
+    summary = client.Summary({
       name: "response_time",
       percentiles: [0.5],
     });

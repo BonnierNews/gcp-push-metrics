@@ -20,7 +20,7 @@ describe("with a metric", () => {
   before(() => {
     ({ clock, metricsRequests } = fixture());
     const client = PushClient({ projectId: "myproject" });
-    client.counter({ name: "num_requests" });
+    client.Counter({ name: "num_requests" });
   });
 
   after(() => clock.restore);
@@ -76,7 +76,7 @@ describe("with projectId not set in options but exists in from env.PROJECT_ID", 
     ({ clock, metricsRequests } = fixture());
     process.env.PROJECT_ID = "projectFromEnv";
     const client = PushClient();
-    client.counter({ name: "num_requests" });
+    client.Counter({ name: "num_requests" });
     clock.tick(60 * 1000);
   });
 
@@ -106,7 +106,7 @@ describe("with a intervalSeconds set to 120", () => {
   before(async () => {
     ({ clock, metricsRequests } = fixture());
     const client = PushClient({ projectId: "myproject", intervalSeconds: 120 });
-    client.counter({ name: "num_requests" });
+    client.Counter({ name: "num_requests" });
   });
 
   after(() => clock.restore);
@@ -153,7 +153,7 @@ describe("with a logger", () => {
       },
     };
     const client = PushClient({ projectId: "myproject", logger: logger });
-    client.counter({ name: "num_requests" });
+    client.Counter({ name: "num_requests" });
   });
 
   after(() => clock.restore);

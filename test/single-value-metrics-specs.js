@@ -13,7 +13,7 @@ describe("counter", () => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
-    counter = client.counter({ name: "num_requests" });
+    counter = client.Counter({ name: "num_requests" });
     clock.tick(60 * 1000);
   });
 
@@ -113,15 +113,13 @@ describe("counter", () => {
 });
 
 describe("gauge", () => {
-  let timeOfInit;
   let gauge;
   let clock, metricsRequests;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now() / 1000;
     const client = PushClient({ projectId: "myproject" });
-    gauge = client.gauge({ name: "outgoing_requests" });
+    gauge = client.Gauge({ name: "outgoing_requests" });
     clock.tick(60 * 1000);
   });
 
@@ -232,11 +230,11 @@ describe("gauge", () => {
 
 [
   {
-    method: (client) => client.counter,
+    method: (client) => client.Counter,
     type: "counter",
   },
   {
-    method: (client) => client.gauge,
+    method: (client) => client.Gauge,
     type: "gauge",
   },
 ].forEach((metricType) => {

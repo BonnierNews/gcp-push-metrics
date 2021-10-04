@@ -1,5 +1,8 @@
 "use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
+import Counter from "./lib/Counter.js";
+import Gauge from "./lib/Gauge.js";
+import Summary from "./lib/Summary.js";
 
 export function PushClient({ projectId, intervalSeconds, logger } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
@@ -28,7 +31,6 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
   const metricsClient = new MetricServiceClient();
   const name = metricsClient.projectPath(projectId);
   const metrics = [];
-  let intervalStart = Date.now();
   let intervalEnd;
 
   const counter = (config) => {
@@ -65,13 +67,13 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
       if (nodeIdSuffix) {
         resource.labels.node_id += nodeIdSuffix;
       }
+
       intervalEnd = Date.now();
-      let timeSeries = metrics
-        .map((metric) => metric.toTimeSeries(intervalStart, intervalEnd, resource))
-        .flat();
-      metrics.forEach((metric) => metric.intervalReset());
-      intervalStart = intervalEnd;
+      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
+
+      metrics.forEach((metric) => metric.intervalReset());
+
       if (timeSeries.length > 0) {
         logger.debug(`PushClient: Pushing metrics to StackDriver`);
         await metricsClient.createTimeSeries({
@@ -89,312 +91,9 @@ export function PushClient({ projectId, intervalSeconds, logger } = {}) {
 
   process.on("SIGTERM", push.bind(null, "-exit"));
 
-  return { counter, gauge, summary, push };
-}
-
-// "Base" factory function used by Counter and Gauge
-function Metric(kind, name, labels) {
-  let points = {};
-
-  if (labels) {
-    //Add a point for each unique combination of labels
-    const combinations = labelCombinations(labels);
-    combinations.forEach((combo) => {
-      const key = labelsKey(combo);
-      points[key] = {
-        labels: combo,
-        value: 0,
-      };
-    });
-  } else {
-    points[labelsKey()] = {
-      labels: null,
-      value: 0,
-    };
-  }
-
-  const inc = (labels) => {
-    const key = labelsKey(labels);
-    if (!points[key]) {
-      points[key] = {
-        labels,
-        value: 0,
-      };
-    }
-    points[labelsKey(labels)].value++;
-  };
-
-  const dec = (labels) => {
-    const key = labelsKey(labels);
-    if (!points[key]) {
-      points[key] = {
-        labels,
-        value: 0,
-      };
-    }
-    points[labelsKey(labels)].value--;
-  };
-
-  const pointsFn = () => {
-    return Object.values(points);
-  };
-
-  return { name, inc, dec, points, pointsFn };
-}
-
-function Counter(config) {
-  const metric = Metric("CUMULATIVE", config.name, config.labels);
-  const createTime = Date.now();
-  const intervalReset = () => {};
-
-  const toTimeSeries = (startTime, endTime, resource) => {
-    return metric.pointsFn().map((point) => {
-      return {
-        metric: {
-          type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
-        },
-        metricKind: "CUMULATIVE",
-        resource,
-        points: [
-          {
-            interval: {
-              startTime: { seconds: createTime / 1000 },
-              endTime: { seconds: endTime / 1000 },
-            },
-            value: {
-              int64Value: point.value,
-            },
-          },
-        ],
-      };
-    });
-  };
-
-  return {
-    inc: metric.inc,
-    points: metric.pointsFn,
-    intervalReset,
-    toTimeSeries: toTimeSeries,
-  };
-}
-
-function Gauge(config) {
-  const metric = Metric("GAUGE", config.name, config.labels);
-
-  const dec = (labels) => {
-    const key = labelsKey(labels);
-    if (!metric.points[key]) {
-      metric.points[key] = {
-        labels,
-        value: 0,
-      };
-    }
-
-    metric.points[labelsKey(labels)].value--;
-  };
-
-  const intervalReset = () => {
-    //noop as a gauge should persist its values between intervals
-  };
-
-  const toTimeSeries = (startTime, endTime, resource) => {
-    return metric.pointsFn().map((point) => {
-      return {
-        metric: {
-          type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
-        },
-        metricKind: "GAUGE",
-        resource,
-        points: [
-          {
-            interval: {
-              endTime: { seconds: endTime / 1000 },
-            },
-            value: {
-              int64Value: point.value,
-            },
-          },
-        ],
-      };
-    });
-  };
-
-  return {
-    inc: metric.inc,
-    dec,
-    points: metric.pointsFn,
-    intervalReset,
-    toTimeSeries: toTimeSeries,
-  };
-}
-
-function Summary(config) {
-  const name = config.name;
-  const percentiles = (config && config.percentiles) || [0.5, 0.9, 0.99];
-  const series = {};
-
-  const intervalReset = () => {
-    Object.values(series).forEach((s) => {
-      s.observations.length = 0;
-    });
-  };
-
-  const observe = (observation, labels) => {
-    const key = labelsKey(labels);
-    if (!series[key]) {
-      series[key] = {
-        labels,
-        observations: [],
-      };
-    }
-    series[key].observations.push(observation);
-  };
-
-  const toTimeSeries = (startTime, endTime, resource) => {
-    return Object.values(series)
-      .filter((s) => s.observations.length)
-      .flatMap((s) => {
-        const observations = s.observations;
-        nsort(observations);
-        return percentiles.map((p) => {
-          const labels = Object.assign(
-            {},
-            {
-              percentile: (p * 100).toString(),
-            },
-            s.labels
-          );
-          return {
-            metric: {
-              type: `custom.googleapis.com/${name}`,
-              labels,
-            },
-            metricKind: "GAUGE",
-            resource,
-            points: [
-              {
-                interval: {
-                  //startTime: { seconds: startTime / 1000 },
-                  endTime: { seconds: endTime / 1000 },
-                },
-                value: {
-                  doubleValue: percentile(observations, p) || 0,
-                },
-              },
-            ],
-          };
-        });
-      });
-  };
-
-  const startTimer = (labels) => {
-    const start = process.hrtime.bigint();
-    return () => {
-      const delta = Number((process.hrtime.bigint() - start) / BigInt(1e6)) / 1e3;
-      observe(delta, labels);
-    };
-  };
-
-  return { observe, startTimer, intervalReset, toTimeSeries };
+  return { Counter: counter, Gauge: gauge, Summary: summary };
 }
 
 function randomId() {
   return Math.random().toString(36).substr(2, 11);
-}
-
-/**
- * Calculates the Cartesian product of a number of values
- *
- * @template T
- * @param {...T[]} values - Any number of arrays to combine to a product
- * @returns {T[]} - The cartesian product of the values
- *
- * @example cartesianProduct([17])
- * //=> [17]
- * @example cartesianProduct([17], [4711])
- * //=> [17, 4711]
- * @example cartesianProduct([17, 4711], [42, 1])
- * //=> [[17, 42], [17, 1], [4711, 42], [4711, 1]]
- */
-const cartesianProduct = (...values) =>
-  values.reduce((product, value) =>
-    product.flatMap((previous) => value.map((v) => [previous, v].flat()))
-  );
-
-/**
- * Combines all given labels with all values
- *
- * @template T
- * @param {{[key: string]: T[]}} labels - An object mapping labels to values
- * @returns {{[key: string]: T}[]}
- *
- * @example combination({})
- * //=> []
- * @example combination({foo: [17]})
- * //=> [{foo: 17}]
- * @example combination({foo: [17, 4711]})
- * //=> [{foo: 17}, {foo: 4711}]
- * @example combination({
- *   foo: [17, 4711]
- * })
- * //=> [{foo: 17}, {foo: 4711}]
- * @example combination({
- *   foo: [17, 4711],
- *   bar: [42, 1]
- * })
- * //=> [{
- *   foo: 17, bar: 42
- * }, {
- *   foo: 17, bar: 1
- * }, {
- *   foo: 4711, bar: 42
- * }, {
- *   foo: 4711, bar: 1
- * }]
- */
-function labelCombinations(labels) {
-  const values = Object.values(labels);
-
-  if (values.length === 0) return [];
-
-  return cartesianProduct(...values).map((value) =>
-    Object.fromEntries(
-      Object.keys(labels).map((label, index) => [
-        label,
-        Array.isArray(value) ? value[index] : value,
-      ])
-    )
-  );
-}
-
-function labelsKey(labels) {
-  if (!labels) {
-    return "no-labels";
-  }
-  return JSON.stringify(labels, Object.keys(labels).sort());
-}
-
-// Copied from https://github.com/brycebaril/node-stats-lite and modified
-function nsort(vals) {
-  return vals.sort((a, b) => {
-    return a - b;
-  });
-}
-
-function percentile(sortedValues, ptile) {
-  if (sortedValues.length === 0 || ptile == null || ptile < 0) return NaN;
-
-  // Fudge anything over 100 to 1.0
-  if (ptile > 1) ptile = 1;
-  var i = sortedValues.length * ptile - 0.5;
-  if ((i | 0) === i) return sortedValues[i];
-  // interpolated percentile -- using Estimation method
-  var int_part = i | 0;
-  var fract = i - int_part;
-  return (
-    (1 - fract) * sortedValues[int_part] +
-    fract * sortedValues[Math.min(int_part + 1, sortedValues.length - 1)]
-  );
 }
