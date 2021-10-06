@@ -112,6 +112,22 @@ After 180 seconds the client will again **not send any time series** as there ha
 
 If you don't specify percentiles when creating a summary it will default to `[0.5, 0.9, 0.99]`. Note that this is different from `prom-client` which defaults to `[0.01, 0.05, 0.5, 0.9, 0.95, 0.99, 0.999]`.
 
+## Timers
+
+As summaries are commonly used to measure execution or response times the summary object provides a convenience method for observing durations:
+
+```
+const summary = client.Summary({
+    name: "response_time",
+});
+
+const end = summary.startTimer();
+
+// Do something time consuming
+
+end();
+```
+
 # Labels
 
 All methods for changing the values of metrics (counter.inc, summary.observe etc) supports an optional labels object which can contain one or more labels and values. Let's look at an example:
