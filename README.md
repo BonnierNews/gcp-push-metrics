@@ -88,7 +88,7 @@ After 240 seconds the client will again push the time series with **1** as value
 Summaries aggregate and calculate percentiles from observed values. The observed values are reset between each interval (60 seconds). Contrary to counters and gauges summary metrics will only be sent if there is at least one observation during the interval. Example:
 
 ```
-const summary = client.Gauge({
+const summary = client.Summary({
     name: "response_time",
     percentiles: [0.5, 0.9]
 });
