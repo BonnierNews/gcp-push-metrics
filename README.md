@@ -200,6 +200,10 @@ After 180 seconds the client will push **twelve** time series. Ten of them will 
 
 When pushing metrics to Cloud Monitoring one must specify a resource type. The client uses the [generic_node](https://cloud.google.com/monitoring/api/resources#tag_generic_node) resource type. It sets `node_id` to a unique value which is generated when the client is created. This means that each client will create unique time series for each metric and in most cases you will want to aggregate metrics, combining multiple series from different resources, when viewing metrics or createing dashboards.
 
+# Development/packaging
+
+As the package is built using ES6 modules we also need to ship a CommonJS dist. This is done in the form of `index.cjs` which is generated using `npm run dist`. This command should always be run prior to `npm publish`.
+
 # Credit
 
 The functionality for calculating percentiles was copied and modified from [node-stats-lite](https://github.com/brycebaril/node-stats-lite).

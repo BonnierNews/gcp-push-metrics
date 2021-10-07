@@ -1,11 +1,16 @@
 {
   "name": "@bonniernews/gcp-push-metrics",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Push metrics to GCP/StackDriver.",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "dist": "./node_modules/.bin/rollup index.js --format cjs --file index.cjs"
+  },
+  "exports": {
+    "import": "./index.js",
+    "require": "./index.cjs"
   },
   "repository": {
     "type": "git",
@@ -20,6 +25,7 @@
   "devDependencies": {
     "chai": "^4.3.4",
     "mocha": "^9.1.1",
+    "rollup": "^2.58.0",
     "sinon": "^11.1.2"
   },
   "dependencies": {
