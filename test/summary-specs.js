@@ -48,10 +48,6 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
       expect(resource).to.have.property("labels");
       const labels = resource.labels;
       expect(labels).to.have.property("project_id", "myproject");
-      expect(labels).to.have.property("node_id").to.be.a("string");
-      expect(labels.node_id.length).to.be.gt(8);
-      expect(labels).to.have.property("location", "global");
-      expect(labels).to.have.property("namespace", "na");
     });
 
     let point;

@@ -52,12 +52,9 @@ export default function PushClient({ projectId, intervalSeconds, logger } = {}) 
   };
 
   const resource = {
-    type: "generic_node",
+    type: "global",
     labels: {
       project_id: projectId,
-      node_id: randomId(),
-      location: "global",
-      namespace: "na",
     },
   };
 
@@ -92,8 +89,4 @@ export default function PushClient({ projectId, intervalSeconds, logger } = {}) 
   process.on("SIGTERM", push.bind(null, "-exit"));
 
   return { Counter: counter, Gauge: gauge, Summary: summary };
-}
-
-function randomId() {
-  return Math.random().toString(36).substr(2, 11);
 }

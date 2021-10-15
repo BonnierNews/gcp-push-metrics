@@ -43,13 +43,10 @@ describe("with a metric", () => {
       const counterSeries = metricsRequests[0].timeSeries[0];
       expect(counterSeries).to.have.property("resource");
       const resource = counterSeries.resource;
+      expect(resource).to.have.property("type", "global");
       expect(resource).to.have.property("labels");
       const labels = resource.labels;
       expect(labels).to.have.property("project_id", "myproject");
-      expect(labels).to.have.property("node_id").to.be.a("string");
-      expect(labels.node_id.length).to.be.gt(8);
-      expect(labels).to.have.property("location", "global");
-      expect(labels).to.have.property("namespace", "na");
     });
   });
 
