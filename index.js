@@ -4,6 +4,8 @@ import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 import http from "http";
+import { log } from "console";
+import { SSL_OP_EPHEMERAL_RSA } from "constants";
 
 export function PushClient({ projectId, intervalSeconds, logger, resourceProvider } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
@@ -119,28 +121,27 @@ function request(path) {
     const options = {
       hostname: "metadata.google.internal",
       port: 80,
-      path: path,
+      path,
       method: "GET",
       timeout: 200,
       headers: {
         "Metadata-Flavor": "Google",
       },
     };
-    http
-      .request(options, (resp) => {
-        let data = "";
-        resp.on("data", (chunk) => {
-          data += chunk;
-        });
+    const req = http.request(options, (resp) => {
+      let data = "";
+      resp.on("data", (chunk) => {
+        data += chunk;
+      });
 
-        resp.on("end", () => {
-          resolve(data);
-        });
-
-        resp.on("error", (err) => {
-          reject(err);
-        });
-      })
-      .end();
+      resp.on("end", () => {
+        resolve(data);
+      });
+    });
+    req.on("error", (err) => {
+      console.log("error");
+      reject(err);
+    });
+    req.end();
   });
 }
