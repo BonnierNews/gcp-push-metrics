@@ -1,6 +1,6 @@
 "use strict";
 import { expect } from "chai";
-import PushClient from "../index.js";
+import { PushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 
 describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have been recorded", () => {

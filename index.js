@@ -4,7 +4,7 @@ import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 
-export default function PushClient({ projectId, intervalSeconds, logger } = {}) {
+export function PushClient({ projectId, intervalSeconds, logger, resource } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
     throw new Error("No project ID found");
@@ -51,22 +51,25 @@ export default function PushClient({ projectId, intervalSeconds, logger } = {}) 
     return summary;
   };
 
-  const resource = {
-    type: "global",
-    labels: {
-      project_id: projectId,
-    },
-  };
+  let blahonga;
+  // const resource = {
+  //   type: "global",
+  //   labels: {
+  //     project_id: projectId,
+  //   },
+  // };
 
   async function push(nodeIdSuffix) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
-      if (nodeIdSuffix) {
-        resource.labels.node_id += nodeIdSuffix;
+      if (!blahonga) {
+        blahonga = await resource();
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
+      let timeSeries = metrics
+        .map((metric) => metric.toTimeSeries(intervalEnd, blahonga.resource))
+        .flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -81,6 +84,7 @@ export default function PushClient({ projectId, intervalSeconds, logger } = {}) 
       }
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}`);
+      console.log(e);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
@@ -89,4 +93,53 @@ export default function PushClient({ projectId, intervalSeconds, logger } = {}) 
   process.on("SIGTERM", push.bind(null, "-exit"));
 
   return { Counter: counter, Gauge: gauge, Summary: summary };
+}
+
+export async function CloudRun() {
+  const location = await request("/computeMetadata/v1/instance/region");
+  const instance_id = await request("/computeMetadata/v1/instance/id");
+  return {
+    resource: {
+      type: "cloud_run_revision",
+      labels: {
+        project_id: process.env.PROJECT_ID,
+        service_name: process.env.K_SERVICE,
+        revision_name: process.env.K_REVISION,
+        configuration_name: process.env.K_CONFIGURATION,
+        location,
+        instance_id,
+      },
+    },
+  };
+}
+
+function request(path) {
+  new Promise((resolve, reject) => {
+    const options = {
+      hostname: "metadata.google.internal",
+      port: 80,
+      path: path,
+      method: "GET",
+      timeout: 200,
+      headers: {
+        "Metadata-Flavor": "Google",
+      },
+    };
+    http
+      .request(options, (resp) => {
+        let data = "";
+        resp.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        resp.on("end", () => {
+          resolve(data);
+        });
+
+        resp.on("error", (err) => {
+          reject(err);
+        });
+      })
+      .end();
+  });
 }
