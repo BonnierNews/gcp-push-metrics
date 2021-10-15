@@ -3,8 +3,9 @@ import { MetricServiceClient } from "@google-cloud/monitoring";
 import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
+import http from "http";
 
-export function PushClient({ projectId, intervalSeconds, logger, resource } = {}) {
+export function PushClient({ projectId, intervalSeconds, logger, resourceProvider } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
     throw new Error("No project ID found");
@@ -63,7 +64,7 @@ export function PushClient({ projectId, intervalSeconds, logger, resource } = {}
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
       if (!blahonga) {
-        blahonga = await resource();
+        blahonga = await resourceProvider();
       }
 
       intervalEnd = Date.now();
@@ -114,7 +115,7 @@ export async function CloudRun() {
 }
 
 function request(path) {
-  new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const options = {
       hostname: "metadata.google.internal",
       port: 80,
