@@ -1,6 +1,13 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 var monitoring = require('@google-cloud/monitoring');
+var http = require('http');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var http__default = /*#__PURE__*/_interopDefaultLegacy(http);
 
 function labelsKey(labels) {
   if (!labels) {
@@ -118,12 +125,12 @@ function Counter(config) {
   const createTime = Date.now();
   const intervalReset = () => {};
 
-  const toTimeSeries = (endTime, resource) => {
+  const toTimeSeries = (endTime, resource, globalLabels) => {
     return metric.pointsFn().map((point) => {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
+          labels: Object.assign({}, point.labels, globalLabels),
         },
         metricKind: "CUMULATIVE",
         resource,
@@ -169,12 +176,12 @@ function Gauge(config) {
     //noop as a gauge should persist its values between intervals
   };
 
-  const toTimeSeries = (endTime, resource) => {
+  const toTimeSeries = (endTime, resource, globalLabels) => {
     return metric.pointsFn().map((point) => {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
+          labels: Object.assign({}, point.labels, globalLabels),
         },
         metricKind: "GAUGE",
         resource,
@@ -249,7 +256,7 @@ function Summary(config) {
     series[key].observations.push(observation);
   };
 
-  const toTimeSeries = (endTime, resource) => {
+  const toTimeSeries = (endTime, resource, globalLabels) => {
     return Object.values(series)
       .filter((s) => s.observations.length)
       .flatMap((s) => {
@@ -257,11 +264,11 @@ function Summary(config) {
         nsort(observations);
         return percentiles.map((p) => {
           const labels = Object.assign(
-            {},
             {
               percentile: (p * 100).toString(),
             },
-            s.labels
+            s.labels,
+            globalLabels
           );
           return {
             metric: {
@@ -297,12 +304,7 @@ function Summary(config) {
   return { observe, startTimer, intervalReset, toTimeSeries };
 }
 
-function PushClient({ projectId, intervalSeconds, logger } = {}) {
-  projectId = projectId || process.env.PROJECT_ID;
-  if (!projectId) {
-    throw new Error("No project ID found");
-  }
-
+function PushClient({ intervalSeconds, logger, resourceProvider, labelsProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -316,13 +318,21 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
       error() {},
     };
   }
+  if (!resourceProvider) {
+    throw new Error("no resourceProvider");
+  }
+
+  if (!labelsProvider) {
+    labelsProvider = () => {
+      return {};
+    };
+  }
 
   if (!logger.debug || !logger.error) {
     throw new Error("logger must have methods 'debug' and 'error'");
   }
 
   const metricsClient = new monitoring.MetricServiceClient();
-  const name = metricsClient.projectPath(projectId);
   const metrics = [];
   let intervalEnd;
 
@@ -344,25 +354,27 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
     return summary;
   };
 
-  const resource = {
-    type: "generic_node",
-    labels: {
-      project_id: projectId,
-      node_id: randomId(),
-      location: "global",
-      namespace: "na",
-    },
-  };
+  let resource, labels;
 
-  async function push(nodeIdSuffix) {
+  async function push(exit) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
-      if (nodeIdSuffix) {
-        resource.labels.node_id += nodeIdSuffix;
+      if (!resource) {
+        resource = await resourceProvider();
+      }
+      if (!labels) {
+        labels = await labelsProvider();
+      }
+
+      let globalLabels = labels.labels;
+      if (exit) {
+        globalLabels = labels.exitLabels;
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
+      let timeSeries = metrics
+        .map((metric) => metric.toTimeSeries(intervalEnd, resource, globalLabels))
+        .flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -370,25 +382,74 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
       if (timeSeries.length > 0) {
         logger.debug(`PushClient: Pushing metrics to StackDriver`);
         await metricsClient.createTimeSeries({
-          name,
+          name: metricsClient.projectPath(resource.labels.project_id),
           timeSeries,
         });
         logger.debug(`PushClient: Done pushing metrics to StackDriver`);
       }
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}`);
+      console.log(e);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
   setTimeout(push, intervalSeconds * 1000);
 
-  process.on("SIGTERM", push.bind(null, "-exit"));
+  process.on("SIGTERM", push.bind(null, true));
 
   return { Counter: counter, Gauge: gauge, Summary: summary };
 }
 
-function randomId() {
-  return Math.random().toString(36).substr(2, 11);
+async function CloudRunResourceProvider() {
+  const locationResponse = await request("/computeMetadata/v1/instance/region");
+  const splitLocation = locationResponse.split("/");
+  const location = splitLocation[splitLocation.length - 1];
+  return {
+    type: "cloud_run_revision",
+    labels: {
+      project_id: process.env.PROJECT_ID,
+      service_name: process.env.K_SERVICE,
+      revision_name: process.env.K_REVISION,
+      configuration_name: process.env.K_CONFIGURATION,
+      location,
+    },
+  };
 }
 
-module.exports = PushClient;
+async function CloudRunLabelsProvider() {
+  const instance_id = await request("/computeMetadata/v1/instance/id");
+  return { labels: { instance_id }, exitLabels: { instance_id: `${instance_id}-exit` } };
+}
+
+function request(path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "metadata.google.internal",
+      port: 80,
+      path,
+      method: "GET",
+      timeout: 200,
+      headers: {
+        "Metadata-Flavor": "Google",
+      },
+    };
+    const req = http__default["default"].request(options, (resp) => {
+      let data = "";
+      resp.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      resp.on("end", () => {
+        resolve(data);
+      });
+    });
+    req.on("error", (err) => {
+      reject(err);
+    });
+    req.end();
+  });
+}
+
+exports.CloudRunLabelsProvider = CloudRunLabelsProvider;
+exports.CloudRunResourceProvider = CloudRunResourceProvider;
+exports.PushClient = PushClient;
