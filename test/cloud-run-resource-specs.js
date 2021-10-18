@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { PushClient, CloudRunResourceProvider, CloudRunLabelsProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import nock from "nock";
-
+const arrs = [];
 [
   {
     method: (client) => client.Counter,
@@ -23,10 +23,11 @@ import nock from "nock";
     },
   },
 ].forEach((metricType) => {
-  describe(`initialized with Cloud Run, ${metricType.type} `, () => {
+  describe.only(`initialized with Cloud Run, ${metricType.type} `, () => {
     let clock, metricsRequests, onPush, client, metric;
     before(() => {
       ({ clock, metricsRequests, onPush } = fixture());
+      arrs.push(metricsRequests);
       process.env.K_REVISION = "hello-world.1";
       process.env.K_SERVICE = "hello-world";
       process.env.K_CONFIGURATION = "hello-world";
@@ -96,6 +97,12 @@ import nock from "nock";
       });
 
       it("pushes again", async () => {
+        if (metricsRequests.length > 3) {
+          arrs.forEach((arr) => {
+            console.log(arr.length);
+          });
+          //console.log(JSON.stringify(metricsRequests[1], null, 2));
+        }
         expect(metricsRequests).to.have.lengthOf(2);
       });
 
