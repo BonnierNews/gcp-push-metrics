@@ -6,9 +6,13 @@ const sandbox = sinon.createSandbox();
 
 export default function fixture(createTimeSeriesStub) {
   const metricsRequests = [];
+  let onPushListener;
   if (!createTimeSeriesStub) {
     createTimeSeriesStub = async (request) => {
       metricsRequests.push(request);
+      if (onPushListener) {
+        onPushListener();
+      }
       return "something";
     };
   }
@@ -21,5 +25,13 @@ export default function fixture(createTimeSeriesStub) {
   };
   stub.createTimeSeries = createTimeSeriesStub;
 
-  return { clock, metricsRequests };
+  const onPush = () => {
+    return new Promise((resolve) => {
+      onPushListener = () => {
+        resolve();
+      };
+    });
+  };
+
+  return { clock, metricsRequests, onPush };
 }

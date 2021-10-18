@@ -5,9 +5,9 @@ import fixture from "./helpers/fixture.js";
 import nock from "nock";
 
 describe.only("initialized with Cloud Run", () => {
-  let clock, metricsRequests, client;
+  let clock, metricsRequests, onPush, client;
   before(() => {
-    ({ clock, metricsRequests } = fixture());
+    ({ clock, metricsRequests, onPush } = fixture());
     process.env.K_REVISION = "hello-world.1";
     process.env.K_SERVICE = "hello-world";
     process.env.K_CONFIGURATION = "hello-world";
@@ -36,7 +36,10 @@ describe.only("initialized with Cloud Run", () => {
   });
 
   describe("after the interval", () => {
-    before(() => clock.tick(60 * 1000));
+    before(() => {
+      clock.tick(60 * 1000);
+      return onPush();
+    });
     let counterSeries;
     it("should include a resource", () => {
       expect(metricsRequests).to.have.lengthOf(1);

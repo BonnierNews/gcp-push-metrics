@@ -139,7 +139,6 @@ function request(path) {
       });
     });
     req.on("error", (err) => {
-      console.log("error");
       reject(err);
     });
     req.end();
