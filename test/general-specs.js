@@ -60,13 +60,6 @@ describe("with a metric", () => {
     it("pushes again to StackDriver", async () => {
       expect(metricsRequests).to.have.lengthOf(2);
     });
-
-    it("should append '-exit' to the node_id of the resource", () => {
-      const counterSeries = metricsRequests[1].timeSeries[0];
-      const resource = counterSeries.resource;
-      const labels = resource.labels;
-      expect(labels.node_id).to.have.string("-exit");
-    });
   });
 });
 

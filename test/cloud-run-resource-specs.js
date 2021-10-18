@@ -24,7 +24,7 @@ import nock from "nock";
   },
 ].forEach((metricType) => {
   describe(`initialized with Cloud Run, ${metricType.type} `, () => {
-    let clock, metricsRequests, onPush, client;
+    let clock, metricsRequests, onPush, client, metric;
     before(() => {
       ({ clock, metricsRequests, onPush } = fixture());
       process.env.K_REVISION = "hello-world.1";
@@ -48,7 +48,7 @@ import nock from "nock";
         resourceProvider: CloudRunResourceProvider,
         labelsProvider: CloudRunLabelsProvider,
       });
-      const metric = metricType.method(client)({ name: "num_requests" });
+      metric = metricType.method(client)({ name: "num_requests" });
       metricType.observe(metric);
     });
     after(() => {
@@ -83,6 +83,27 @@ import nock from "nock";
         expect(counterSeries.metric.labels).to.have.property(
           "instance_id",
           "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706"
+        );
+      });
+    });
+
+    describe("when SIGTERM is sent", () => {
+      before(() => {
+        const push = onPush();
+        metricType.observe(metric);
+        process.emit("SIGTERM");
+        return push;
+      });
+
+      it("pushes again", async () => {
+        expect(metricsRequests).to.have.lengthOf(2);
+      });
+
+      it("should append '-exit' to the instance_id label", () => {
+        const counterSeries = metricsRequests[1].timeSeries[0];
+        expect(counterSeries.metric.labels).to.have.property(
+          "instance_id",
+          "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706-exit"
         );
       });
     });

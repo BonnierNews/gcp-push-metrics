@@ -76,7 +76,7 @@ export function PushClient({
 
   let resource, labels;
 
-  async function push(nodeIdSuffix) {
+  async function push(exit) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
       if (!resource) {
@@ -85,9 +85,15 @@ export function PushClient({
       if (!labels) {
         labels = await labelsProvider();
       }
+
+      let globalLabels = labels.labels;
+      if (exit) {
+        globalLabels = labels.exitLabels;
+      }
+
       intervalEnd = Date.now();
       let timeSeries = metrics
-        .map((metric) => metric.toTimeSeries(intervalEnd, resource, labels))
+        .map((metric) => metric.toTimeSeries(intervalEnd, resource, globalLabels))
         .flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
@@ -109,7 +115,7 @@ export function PushClient({
   }
   setTimeout(push, intervalSeconds * 1000);
 
-  process.on("SIGTERM", push.bind(null, "-exit"));
+  process.on("SIGTERM", push.bind(null, true));
 
   return { Counter: counter, Gauge: gauge, Summary: summary };
 }
@@ -132,7 +138,7 @@ export async function CloudRunResourceProvider() {
 
 export async function CloudRunLabelsProvider() {
   const instance_id = await request("/computeMetadata/v1/instance/id");
-  return { labels: { instance_id }, exitLabels: { instance_id } };
+  return { labels: { instance_id }, exitLabels: { instance_id: `${instance_id}-exit` } };
 }
 
 function request(path) {
