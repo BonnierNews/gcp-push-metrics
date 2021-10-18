@@ -343,7 +343,7 @@ describe("gauge", () => {
         expect(metricsRequests).to.have.lengthOf(1);
         expect(metricsRequests[0].timeSeries).to.have.lengthOf(3);
         const series = metricsRequests[0].timeSeries;
-        expect(series.find((s) => !s.metric.labels)).to.not.be.undefined;
+        expect(series.find((s) => Object.keys(s.metric.labels).length === 0)).to.not.be.undefined;
       });
     });
   });

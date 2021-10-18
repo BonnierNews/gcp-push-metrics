@@ -5,7 +5,13 @@ import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 import http from "http";
 
-export function PushClient({ projectId, intervalSeconds, logger, resourceProvider } = {}) {
+export function PushClient({
+  projectId,
+  intervalSeconds,
+  logger,
+  resourceProvider,
+  labelsProvider,
+} = {}) {
   projectId = projectId || process.env.PROJECT_ID;
   if (!projectId) {
     throw new Error("No project ID found");
@@ -22,6 +28,22 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
     logger = {
       debug() {},
       error() {},
+    };
+  }
+  if (!resourceProvider) {
+    resourceProvider = () => {
+      return {
+        type: "global",
+        labels: {
+          project_id: projectId,
+        },
+      };
+    };
+  }
+
+  if (!labelsProvider) {
+    labelsProvider = () => {
+      return {};
     };
   }
 
@@ -52,13 +74,7 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
     return summary;
   };
 
-  let resource;
-  // const resource = {
-  //   type: "global",
-  //   labels: {
-  //     project_id: projectId,
-  //   },
-  // };
+  let resource, labels;
 
   async function push(nodeIdSuffix) {
     logger.debug("PushClient: Gathering and pushing metrics");
@@ -66,9 +82,13 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
       if (!resource) {
         resource = await resourceProvider();
       }
-
+      if (!labels) {
+        labels = await labelsProvider();
+      }
       intervalEnd = Date.now();
-      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
+      let timeSeries = metrics
+        .map((metric) => metric.toTimeSeries(intervalEnd, resource, labels))
+        .flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -95,8 +115,9 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
 }
 
 export async function CloudRunResourceProvider() {
-  const location = await request("/computeMetadata/v1/instance/region");
-  const instance_id = await request("/computeMetadata/v1/instance/id");
+  const locationResponse = await request("/computeMetadata/v1/instance/region");
+  const splitLocation = locationResponse.split("/");
+  const location = splitLocation[splitLocation.length - 1];
   return {
     type: "cloud_run_revision",
     labels: {
@@ -105,13 +126,13 @@ export async function CloudRunResourceProvider() {
       revision_name: process.env.K_REVISION,
       configuration_name: process.env.K_CONFIGURATION,
       location,
-      instance_id,
     },
   };
 }
 
 export async function CloudRunLabelsProvider() {
-  return {};
+  const instance_id = await request("/computeMetadata/v1/instance/id");
+  return { labels: { instance_id }, exitLabels: { instance_id } };
 }
 
 function request(path) {

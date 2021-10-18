@@ -15,10 +15,10 @@ describe("initialized and no metrics", () => {
 });
 
 describe("with a metric", () => {
-  let clock, metricsRequests;
+  let clock, metricsRequests, onPush;
 
   before(() => {
-    ({ clock, metricsRequests } = fixture());
+    ({ clock, metricsRequests, onPush } = fixture());
     const client = PushClient({ projectId: "myproject" });
     client.Counter({ name: "num_requests" });
   });
@@ -51,7 +51,11 @@ describe("with a metric", () => {
   });
 
   describe("when SIGTERM is sent", () => {
-    before(() => process.emit("SIGTERM"));
+    before(() => {
+      const push = onPush();
+      process.emit("SIGTERM");
+      return push;
+    });
 
     it("pushes again to StackDriver", async () => {
       expect(metricsRequests).to.have.lengthOf(2);
