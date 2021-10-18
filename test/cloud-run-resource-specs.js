@@ -1,6 +1,6 @@
 "use strict";
 import { expect } from "chai";
-import { PushClient, CloudRun } from "../index.js";
+import { PushClient, CloudRunResourceProvider, CloudRunLabelsProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import nock from "nock";
 
@@ -25,7 +25,10 @@ describe.only("initialized with Cloud Run", () => {
         "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706"
       );
 
-    client = PushClient({ resourceProvider: CloudRun });
+    client = PushClient({
+      resourceProvider: CloudRunResourceProvider,
+      defaultLabelsProvider: CloudRunLabelsProvider,
+    });
     client.Counter({ name: "num_requests" });
   });
   after(() => {

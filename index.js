@@ -4,8 +4,6 @@ import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 import http from "http";
-import { log } from "console";
-import { SSL_OP_EPHEMERAL_RSA } from "constants";
 
 export function PushClient({ projectId, intervalSeconds, logger, resourceProvider } = {}) {
   projectId = projectId || process.env.PROJECT_ID;
@@ -54,7 +52,7 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
     return summary;
   };
 
-  let blahonga;
+  let resource;
   // const resource = {
   //   type: "global",
   //   labels: {
@@ -65,14 +63,12 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
   async function push(nodeIdSuffix) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
-      if (!blahonga) {
-        blahonga = await resourceProvider();
+      if (!resource) {
+        resource = await resourceProvider();
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics
-        .map((metric) => metric.toTimeSeries(intervalEnd, blahonga.resource))
-        .flat();
+      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -98,22 +94,24 @@ export function PushClient({ projectId, intervalSeconds, logger, resourceProvide
   return { Counter: counter, Gauge: gauge, Summary: summary };
 }
 
-export async function CloudRun() {
+export async function CloudRunResourceProvider() {
   const location = await request("/computeMetadata/v1/instance/region");
   const instance_id = await request("/computeMetadata/v1/instance/id");
   return {
-    resource: {
-      type: "cloud_run_revision",
-      labels: {
-        project_id: process.env.PROJECT_ID,
-        service_name: process.env.K_SERVICE,
-        revision_name: process.env.K_REVISION,
-        configuration_name: process.env.K_CONFIGURATION,
-        location,
-        instance_id,
-      },
+    type: "cloud_run_revision",
+    labels: {
+      project_id: process.env.PROJECT_ID,
+      service_name: process.env.K_SERVICE,
+      revision_name: process.env.K_REVISION,
+      configuration_name: process.env.K_CONFIGURATION,
+      location,
+      instance_id,
     },
   };
+}
+
+export async function CloudRunLabelsProvider() {
+  return {};
 }
 
 function request(path) {
