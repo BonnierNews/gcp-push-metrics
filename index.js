@@ -5,18 +5,7 @@ import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 import http from "http";
 
-export function PushClient({
-  projectId,
-  intervalSeconds,
-  logger,
-  resourceProvider,
-  labelsProvider,
-} = {}) {
-  projectId = projectId || process.env.PROJECT_ID;
-  if (!projectId) {
-    throw new Error("No project ID found");
-  }
-
+export function PushClient({ intervalSeconds, logger, resourceProvider, labelsProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -31,14 +20,7 @@ export function PushClient({
     };
   }
   if (!resourceProvider) {
-    resourceProvider = () => {
-      return {
-        type: "global",
-        labels: {
-          project_id: projectId,
-        },
-      };
-    };
+    throw new Error("no resourceProvider");
   }
 
   if (!labelsProvider) {
@@ -52,7 +34,6 @@ export function PushClient({
   }
 
   const metricsClient = new MetricServiceClient();
-  const name = metricsClient.projectPath(projectId);
   const metrics = [];
   let intervalEnd;
 
@@ -102,7 +83,7 @@ export function PushClient({
       if (timeSeries.length > 0) {
         logger.debug(`PushClient: Pushing metrics to StackDriver`);
         await metricsClient.createTimeSeries({
-          name,
+          name: metricsClient.projectPath(resource.labels.project_id),
           timeSeries,
         });
         logger.debug(`PushClient: Done pushing metrics to StackDriver`);

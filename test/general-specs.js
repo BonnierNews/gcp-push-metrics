@@ -2,13 +2,14 @@
 import { expect } from "chai";
 import { PushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
+import globalResourceProvider from "./helpers/globalResourceProvider.js";
 
 describe("initialized and no metrics", () => {
   let clock, metricsRequests;
   before(() => ({ clock, metricsRequests } = fixture()));
   after(() => clock.restore);
   it("does not push after the interval", async () => {
-    PushClient({ projectId: "myproject" });
+    PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
     clock.tick(61 * 1000);
     expect(metricsRequests).to.have.lengthOf(0);
   });
@@ -19,11 +20,14 @@ describe("with a metric", () => {
 
   before(() => {
     ({ clock, metricsRequests, onPush } = fixture());
-    const client = PushClient({ projectId: "myproject" });
+    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
     client.Counter({ name: "num_requests" });
   });
 
-  after(() => clock.restore);
+  after(() => {
+    clock.restore();
+    process.removeAllListeners("SIGTERM");
+  });
 
   describe("after the interval", () => {
     before(() => clock.tick(60 * 1000));
@@ -63,34 +67,9 @@ describe("with a metric", () => {
   });
 });
 
-describe("with projectId not set in options but exists in from env.PROJECT_ID", () => {
-  let clock, metricsRequests;
-
-  before(async () => {
-    ({ clock, metricsRequests } = fixture());
-    process.env.PROJECT_ID = "projectFromEnv";
-    const client = PushClient();
-    client.Counter({ name: "num_requests" });
-    clock.tick(60 * 1000);
-  });
-
-  after(() => {
-    delete process.env.PROJECT_ID;
-    clock.restore();
-  });
-
-  it("uses project ID from env", async () => {
-    expect(metricsRequests[0]).to.have.property("name", "projectpath:projectFromEnv");
-    expect(metricsRequests[0].timeSeries[0].resource.labels).to.have.property(
-      "project_id",
-      "projectFromEnv"
-    );
-  });
-});
-
-describe("without projectId", () => {
+describe("without resourceProvider", () => {
   it("throws an error", async () => {
-    expect(PushClient).to.throw(/project ID/);
+    expect(PushClient).to.throw(/resourceProvider/);
   });
 });
 
@@ -99,7 +78,11 @@ describe("with a intervalSeconds set to 120", () => {
 
   before(async () => {
     ({ clock, metricsRequests } = fixture());
-    const client = PushClient({ projectId: "myproject", intervalSeconds: 120 });
+    const client = PushClient({
+      projectId: "myproject",
+      intervalSeconds: 120,
+      resourceProvider: globalResourceProvider,
+    });
     client.Counter({ name: "num_requests" });
   });
 
@@ -126,7 +109,11 @@ describe("with a intervalSeconds set to 0", () => {
   });
 
   it("throws an error", async () => {
-    const fn = PushClient.bind(null, { projectId: "myProject", intervalSeconds: 0 });
+    const fn = PushClient.bind(null, {
+      projectId: "myProject",
+      intervalSeconds: 0,
+      resourceProvider: globalResourceProvider,
+    });
     expect(fn).to.throw(/intervalSeconds/);
   });
 });
@@ -146,7 +133,11 @@ describe("with a logger", () => {
         errors.push(msg);
       },
     };
-    const client = PushClient({ projectId: "myproject", logger: logger });
+    const client = PushClient({
+      projectId: "myproject",
+      logger: logger,
+      resourceProvider: globalResourceProvider,
+    });
     client.Counter({ name: "num_requests" });
   });
 
@@ -162,7 +153,11 @@ describe("with a logger", () => {
 
 describe("with invalid logger", () => {
   it("throws an error", async () => {
-    const fn = PushClient.bind(null, { projectId: "myProject", logger: {} });
+    const fn = PushClient.bind(null, {
+      projectId: "myProject",
+      logger: {},
+      resourceProvider: globalResourceProvider,
+    });
     expect(fn).to.throw(/logger/);
   });
 });
