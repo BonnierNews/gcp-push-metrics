@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/BonnierNews/gcp-push-metrics.svg?branch=master)](https://travis-ci.org/BonnierNews/gcp-push-metrics)
 
-This package helps you aggregate and push custom metrics to Google Cloud Monitoring.
+This package helps you aggregate and push custom metrics to Google Cloud Monitoring from Node.js applications, for instance running using Google Cloud Run.
 
 Using this package you can collect three types of metrics: counters, gauges and summaries. The values are aggregated in memory and every 60 seconds pushed to the [Cloud Monitoring API](https://cloud.google.com/monitoring/custom-metrics/creating-metrics).
 
