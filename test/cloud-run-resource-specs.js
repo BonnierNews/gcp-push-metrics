@@ -1,6 +1,6 @@
 "use strict";
 import { expect } from "chai";
-import { PushClient, CloudRunResourceProvider, CloudRunLabelsProvider } from "../index.js";
+import { PushClient, CloudRunResourceProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import nock from "nock";
 
@@ -46,7 +46,6 @@ import nock from "nock";
 
       client = PushClient({
         resourceProvider: CloudRunResourceProvider,
-        labelsProvider: CloudRunLabelsProvider,
       });
       metric = metricType.method(client)({ name: "num_requests" });
       metricType.observe(metric);
@@ -70,21 +69,15 @@ import nock from "nock";
         counterSeries = metricsRequests[0].timeSeries[0];
         expect(counterSeries).to.have.property("resource");
         const resource = counterSeries.resource;
-        expect(resource).to.have.property("type", "cloud_run_revision");
-        expect(resource).to.have.property("labels");
+        expect(resource).to.have.property("type", "generic_node");
         const labels = resource.labels;
         expect(labels).to.have.property("project_id", "my_project");
-        expect(labels).to.have.property("service_name", "hello-world");
-        expect(labels).to.have.property("revision_name", "hello-world.1");
-        expect(labels).to.have.property("location", "europe-west1");
-        expect(labels).to.have.property("configuration_name", "hello-world");
-      });
-
-      it("should push a time series labeled with instance ID", () => {
-        expect(counterSeries.metric.labels).to.have.property(
-          "instance_id",
+        expect(labels).to.have.property("namespace", "hello-world");
+        expect(labels).to.have.property(
+          "node_id",
           "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706"
         );
+        expect(labels).to.have.property("location", "europe-west1");
       });
     });
 
@@ -100,10 +93,10 @@ import nock from "nock";
         expect(metricsRequests).to.have.lengthOf(2);
       });
 
-      it("should append '-exit' to the instance_id label", () => {
+      it("should append '-exit' to the node_id label", () => {
         const counterSeries = metricsRequests[1].timeSeries[0];
-        expect(counterSeries.metric.labels).to.have.property(
-          "instance_id",
+        expect(counterSeries.resource.labels).to.have.property(
+          "node_id",
           "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706-exit"
         );
       });

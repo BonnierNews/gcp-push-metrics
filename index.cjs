@@ -1,6 +1,13 @@
 'use strict';
 
+Object.defineProperty(exports, '__esModule', { value: true });
+
 var monitoring = require('@google-cloud/monitoring');
+var http = require('http');
+
+function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
+
+var http__default = /*#__PURE__*/_interopDefaultLegacy(http);
 
 function labelsKey(labels) {
   if (!labels) {
@@ -123,7 +130,7 @@ function Counter(config) {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
+          labels: Object.assign({}, point.labels),
         },
         metricKind: "CUMULATIVE",
         resource,
@@ -174,7 +181,7 @@ function Gauge(config) {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
+          labels: Object.assign({}, point.labels),
         },
         metricKind: "GAUGE",
         resource,
@@ -257,7 +264,6 @@ function Summary(config) {
         nsort(observations);
         return percentiles.map((p) => {
           const labels = Object.assign(
-            {},
             {
               percentile: (p * 100).toString(),
             },
@@ -297,12 +303,7 @@ function Summary(config) {
   return { observe, startTimer, intervalReset, toTimeSeries };
 }
 
-function PushClient({ projectId, intervalSeconds, logger } = {}) {
-  projectId = projectId || process.env.PROJECT_ID;
-  if (!projectId) {
-    throw new Error("No project ID found");
-  }
-
+function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -316,13 +317,15 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
       error() {},
     };
   }
+  if (!resourceProvider) {
+    throw new Error("no resourceProvider");
+  }
 
   if (!logger.debug || !logger.error) {
     throw new Error("logger must have methods 'debug' and 'error'");
   }
 
   const metricsClient = new monitoring.MetricServiceClient();
-  const name = metricsClient.projectPath(projectId);
   const metrics = [];
   let intervalEnd;
 
@@ -344,21 +347,17 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
     return summary;
   };
 
-  const resource = {
-    type: "generic_node",
-    labels: {
-      project_id: projectId,
-      node_id: randomId(),
-      location: "global",
-      namespace: "na",
-    },
-  };
+  let resources;
 
-  async function push(nodeIdSuffix) {
+  async function push(exit) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
-      if (nodeIdSuffix) {
-        resource.labels.node_id += nodeIdSuffix;
+      if (!resources) {
+        resources = await resourceProvider();
+      }
+      let resource = resources.default;
+      if (exit) {
+        resource = resources.exit;
       }
 
       intervalEnd = Date.now();
@@ -370,7 +369,7 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
       if (timeSeries.length > 0) {
         logger.debug(`PushClient: Pushing metrics to StackDriver`);
         await metricsClient.createTimeSeries({
-          name,
+          name: metricsClient.projectPath(resource.labels.project_id),
           timeSeries,
         });
         logger.debug(`PushClient: Done pushing metrics to StackDriver`);
@@ -382,13 +381,66 @@ function PushClient({ projectId, intervalSeconds, logger } = {}) {
   }
   setTimeout(push, intervalSeconds * 1000);
 
-  process.on("SIGTERM", push.bind(null, "-exit"));
+  process.on("SIGTERM", push.bind(null, true));
 
   return { Counter: counter, Gauge: gauge, Summary: summary };
 }
 
-function randomId() {
-  return Math.random().toString(36).substr(2, 11);
+async function CloudRunResourceProvider() {
+  const locationResponse = await request("/computeMetadata/v1/instance/region");
+  let instance_id = await request("/computeMetadata/v1/instance/id");
+  const splitLocation = locationResponse.split("/");
+  const location = splitLocation[splitLocation.length - 1];
+  return {
+    default: {
+      type: "generic_node",
+      labels: {
+        project_id: process.env.PROJECT_ID,
+        namespace: process.env.K_SERVICE,
+        node_id: instance_id,
+        location,
+      },
+    },
+    exit: {
+      type: "generic_node",
+      labels: {
+        project_id: process.env.PROJECT_ID,
+        namespace: process.env.K_SERVICE,
+        node_id: `${instance_id}-exit`,
+        location,
+      },
+    },
+  };
 }
 
-module.exports = PushClient;
+function request(path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "metadata.google.internal",
+      port: 80,
+      path,
+      method: "GET",
+      timeout: 200,
+      headers: {
+        "Metadata-Flavor": "Google",
+      },
+    };
+    const req = http__default["default"].request(options, (resp) => {
+      let data = "";
+      resp.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      resp.on("end", () => {
+        resolve(data);
+      });
+    });
+    req.on("error", (err) => {
+      reject(err);
+    });
+    req.end();
+  });
+}
+
+exports.CloudRunResourceProvider = CloudRunResourceProvider;
+exports.PushClient = PushClient;

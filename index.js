@@ -5,7 +5,7 @@ import Gauge from "./lib/Gauge.js";
 import Summary from "./lib/Summary.js";
 import http from "http";
 
-export function PushClient({ intervalSeconds, logger, resourceProvider, labelsProvider } = {}) {
+export function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -21,12 +21,6 @@ export function PushClient({ intervalSeconds, logger, resourceProvider, labelsPr
   }
   if (!resourceProvider) {
     throw new Error("no resourceProvider");
-  }
-
-  if (!labelsProvider) {
-    labelsProvider = () => {
-      return {};
-    };
   }
 
   if (!logger.debug || !logger.error) {
@@ -55,27 +49,21 @@ export function PushClient({ intervalSeconds, logger, resourceProvider, labelsPr
     return summary;
   };
 
-  let resource, labels;
+  let resources;
 
   async function push(exit) {
     logger.debug("PushClient: Gathering and pushing metrics");
     try {
-      if (!resource) {
-        resource = await resourceProvider();
+      if (!resources) {
+        resources = await resourceProvider();
       }
-      if (!labels) {
-        labels = await labelsProvider();
-      }
-
-      let globalLabels = labels.labels;
+      let resource = resources.default;
       if (exit) {
-        globalLabels = labels.exitLabels;
+        resource = resources.exit;
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics
-        .map((metric) => metric.toTimeSeries(intervalEnd, resource, globalLabels))
-        .flat();
+      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -90,7 +78,6 @@ export function PushClient({ intervalSeconds, logger, resourceProvider, labelsPr
       }
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}`);
-      console.log(e);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
@@ -103,23 +90,29 @@ export function PushClient({ intervalSeconds, logger, resourceProvider, labelsPr
 
 export async function CloudRunResourceProvider() {
   const locationResponse = await request("/computeMetadata/v1/instance/region");
+  let instance_id = await request("/computeMetadata/v1/instance/id");
   const splitLocation = locationResponse.split("/");
   const location = splitLocation[splitLocation.length - 1];
   return {
-    type: "cloud_run_revision",
-    labels: {
-      project_id: process.env.PROJECT_ID,
-      service_name: process.env.K_SERVICE,
-      revision_name: process.env.K_REVISION,
-      configuration_name: process.env.K_CONFIGURATION,
-      location,
+    default: {
+      type: "generic_node",
+      labels: {
+        project_id: process.env.PROJECT_ID,
+        namespace: process.env.K_SERVICE,
+        node_id: instance_id,
+        location,
+      },
+    },
+    exit: {
+      type: "generic_node",
+      labels: {
+        project_id: process.env.PROJECT_ID,
+        namespace: process.env.K_SERVICE,
+        node_id: `${instance_id}-exit`,
+        location,
+      },
     },
   };
-}
-
-export async function CloudRunLabelsProvider() {
-  const instance_id = await request("/computeMetadata/v1/instance/id");
-  return { labels: { instance_id }, exitLabels: { instance_id: `${instance_id}-exit` } };
 }
 
 function request(path) {

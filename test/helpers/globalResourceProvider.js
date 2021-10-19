@@ -1,9 +1,17 @@
 "use strict";
 export default function globalResourceProvider() {
   return {
-    type: "global",
-    labels: {
-      project_id: "myproject",
+    exit: {
+      type: "global",
+      labels: {
+        project_id: "myproject",
+      },
+    },
+    default: {
+      type: "global",
+      labels: {
+        project_id: "myproject",
+      },
     },
   };
 }
