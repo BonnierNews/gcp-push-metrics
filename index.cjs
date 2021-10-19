@@ -125,12 +125,12 @@ function Counter(config) {
   const createTime = Date.now();
   const intervalReset = () => {};
 
-  const toTimeSeries = (endTime, resource, globalLabels) => {
+  const toTimeSeries = (endTime, resource) => {
     return metric.pointsFn().map((point) => {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: Object.assign({}, point.labels),
+          labels: point.labels,
         },
         metricKind: "CUMULATIVE",
         resource,
@@ -176,12 +176,12 @@ function Gauge(config) {
     //noop as a gauge should persist its values between intervals
   };
 
-  const toTimeSeries = (endTime, resource, globalLabels) => {
+  const toTimeSeries = (endTime, resource) => {
     return metric.pointsFn().map((point) => {
       return {
         metric: {
           type: `custom.googleapis.com/${config.name}`,
-          labels: Object.assign({}, point.labels),
+          labels: point.labels,
         },
         metricKind: "GAUGE",
         resource,
@@ -256,7 +256,7 @@ function Summary(config) {
     series[key].observations.push(observation);
   };
 
-  const toTimeSeries = (endTime, resource, globalLabels) => {
+  const toTimeSeries = (endTime, resource) => {
     return Object.values(series)
       .filter((s) => s.observations.length)
       .flatMap((s) => {
@@ -267,8 +267,7 @@ function Summary(config) {
             {
               percentile: (p * 100).toString(),
             },
-            s.labels,
-            globalLabels
+            s.labels
           );
           return {
             metric: {
@@ -362,9 +361,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics
-        .map((metric) => metric.toTimeSeries(intervalEnd, resource, globalLabels))
-        .flat();
+      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
@@ -379,7 +376,6 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
       }
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}`);
-      console.log(e);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
