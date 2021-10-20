@@ -27,7 +27,7 @@ const counter = client.Counter({ name: "num_requests" });
 counter.inc();
 ```
 
-In the above example we import the package and create a client. In order to create a client a GCP project ID is needed. This can either be supplied as an argument to the `PushClient` function, as above, or read from a `PROJECT_ID` environment variable.
+In the above example we import the package and create a client. In order to create a client we need to supply a [resource provider](#resource-providers). It's possible to create custom resource providers but here we use one supplied by the package.
 
 We then proceed to create a counter named "num_requests" and increment it. Once 60 seconds has passed the client will try to push a single time series to the Cloud Monitoring API.
 
