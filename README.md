@@ -19,9 +19,9 @@ npm install @bonniernews/gcp-push-metrics
 Let's start by looking at a basic use case, creating a counter and incrementing it.
 
 ```
-import PushClient from "@bonniernews/gcp-push-metrics";
+import {PushClient, CloudRunResourceProvider} from "@bonniernews/gcp-push-metrics";
 
-const client = PushClient({ projectId: "myproject" });
+const client = PushClient({ resourceProvider: CloudRunResourceProvider });
 
 const counter = client.Counter({ name: "num_requests" });
 counter.inc();
@@ -196,9 +196,41 @@ After 120 the client will again push **ten** time series. The one labeled with `
 
 After 180 seconds the client will push **twelve** time series. Ten of them will be the same as before. The other two will be for the previously unseen label combinations, meaning one with `{ response_code: "2xx", source: "unknown" }` as labels and one without labels.
 
-# Resource and node ID
+# Resource providers
 
-When pushing metrics to Cloud Monitoring one must specify a resource type. The client uses the [generic_node](https://cloud.google.com/monitoring/api/resources#tag_generic_node) resource type. It sets `node_id` to a unique value which is generated when the client is created. This means that each client will create unique time series for each metric and in most cases you will want to aggregate metrics, combining multiple series from different resources, when viewing metrics or createing dashboards.
+When pushing metrics to Cloud Monitoring one must specify a [resource type](https://cloud.google.com/monitoring/api/resources). This package handles that by allowing you to specify a "resource provider" when creating the client. A resource provider is a function which must return a promise which resolves to an object with two properties, `default` and `exit`. These properties must in turn contain valid resource objects. The `exit` one will be used when the client tries to push metrics when `SIGTERM` is sent to the application while the `default` one will be used for all other requests.
+
+A minimalistic resource provider may look like this:
+
+```
+function globalResourceProvider() {
+  return {
+    exit: {
+      type: "global",
+      labels: {
+        project_id: "myproject",
+      },
+    },
+    default: {
+      type: "global",
+      labels: {
+        project_id: "myproject",
+      },
+    },
+  };
+}
+```
+
+Note that the above example will only work when metrics are collected from a single source (ie one pod). In more realistic scenarios the resource should contain something that identifies the unique application instance to ensure that pushed time series won't conflict with each other.
+
+## Cloud Run resource provider
+
+The package ships with a pre-built resource provider for applications deployed on Cloud Run, `CloudRunResourceProvider`. This resource provider will use the [generic_node](https://cloud.google.com/monitoring/api/resources#tag_generic_node) resource type. It maps the labels for the resource in the following way:
+
+- `project_id` - fetched from the [container instance metadata servers](https://cloud.google.com/run/docs/reference/container-contract#metadata-server) `/computeMetadata/v1/project/project-id` endpoint.
+- `location` - fetched and parsed from the [container instance metadata servers](https://cloud.google.com/run/docs/reference/container-contract#metadata-server) `/computeMetadata/v1/instance/region` endpoint.
+- `namespace` - fetched from the `K_SERVICE` environment variable.
+- `node_id` - fetched from the [container instance metadata servers](https://cloud.google.com/run/docs/reference/container-contract#metadata-server) `/computeMetadata/v1/instance/id` endpoint. In the `exit` resource `-exit` is appended to the `node-id`.
 
 # Maximum 200 time series
 
