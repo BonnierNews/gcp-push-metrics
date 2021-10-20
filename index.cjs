@@ -375,7 +375,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
         logger.debug(`PushClient: Done pushing metrics to StackDriver`);
       }
     } catch (e) {
-      logger.error(`PushClient: Unable to push metrics: ${e}`);
+      logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
@@ -387,6 +387,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 }
 
 async function CloudRunResourceProvider() {
+  const project_id = await request("/computeMetadata/v1/project/project-id");
   const locationResponse = await request("/computeMetadata/v1/instance/region");
   let instance_id = await request("/computeMetadata/v1/instance/id");
   const splitLocation = locationResponse.split("/");
@@ -395,7 +396,7 @@ async function CloudRunResourceProvider() {
     default: {
       type: "generic_node",
       labels: {
-        project_id: process.env.PROJECT_ID,
+        project_id,
         namespace: process.env.K_SERVICE,
         node_id: instance_id,
         location,
@@ -404,7 +405,7 @@ async function CloudRunResourceProvider() {
     exit: {
       type: "generic_node",
       labels: {
-        project_id: process.env.PROJECT_ID,
+        project_id,
         namespace: process.env.K_SERVICE,
         node_id: `${instance_id}-exit`,
         location,

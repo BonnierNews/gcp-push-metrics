@@ -30,7 +30,6 @@ import nock from "nock";
       process.env.K_REVISION = "hello-world.1";
       process.env.K_SERVICE = "hello-world";
       process.env.K_CONFIGURATION = "hello-world";
-      process.env.PROJECT_ID = "my_project";
       const scope = nock("http://metadata.google.internal", {
         reqheaders: { "Metadata-Flavor": "Google" },
       });
@@ -43,6 +42,7 @@ import nock from "nock";
           200,
           "00bf4bf02df8cfe82a1072fc7c3ab93b9fa2a09b029a7533f92ccb2b2c9bdca19a0b50373165a3d8559d0bcb14991feeca400d26e6d21b47571949ef8706"
         );
+      scope.get("/computeMetadata/v1/project/project-id").reply(200, "my_project");
 
       client = PushClient({
         resourceProvider: CloudRunResourceProvider,
