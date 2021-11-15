@@ -110,6 +110,21 @@ describe("counter", () => {
       expect(metricsRequests[3].timeSeries[0].points[0].value.int64Value).to.eql(3);
     });
   });
+
+  describe("when the counter has been incremented with 3 as value and another interval has passed", () => {
+    before(() => {
+      counter.inc(3);
+      clock.tick(60 * 1000);
+    });
+
+    it("should have pushed a fifth time", () => {
+      expect(metricsRequests).to.have.lengthOf(5);
+    });
+
+    it("should have pushed the metric with 6 as value", () => {
+      expect(metricsRequests[4].timeSeries[0].points[0].value.int64Value).to.eql(6);
+    });
+  });
 });
 
 describe("gauge", () => {
@@ -220,6 +235,22 @@ describe("gauge", () => {
 
     it("should have pushed the metric with 2 as value", () => {
       expect(metricsRequests[3].timeSeries[0].points[0].value.int64Value).to.eql(2);
+    });
+  });
+
+  describe("when the gauge has been incremented with 4 as value and decremented with 2 as value and another interval has passed", () => {
+    before(() => {
+      gauge.inc(4);
+      gauge.dec(2);
+      clock.tick(60 * 1000);
+    });
+
+    it("should have pushed a fifth time", () => {
+      expect(metricsRequests).to.have.lengthOf(5);
+    });
+
+    it("should have pushed the metric with 4 as value", () => {
+      expect(metricsRequests[4].timeSeries[0].points[0].value.int64Value).to.eql(4);
     });
   });
 });
