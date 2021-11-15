@@ -83,7 +83,11 @@ function labelCombinations(labels) {
 
 // "Base" functionality used by Counter and Gauge
 function Metric(name, labels) {
-  let points = {};
+  if (!name) {
+    throw new Error("name is required");
+  }
+
+  const points = {};
 
   if (labels) {
     //Add a point for each unique combination of labels
@@ -102,52 +106,57 @@ function Metric(name, labels) {
     };
   }
 
-  const inc = (labels) => {
-    const key = labelsKey(labels);
+  const inc = (incLabels, value) => {
+    if (incLabels !== Object(incLabels)) {
+      value = incLabels;
+      incLabels = null;
+    }
+    if (value === null || value === undefined) {
+      value = 1;
+    }
+
+    const key = labelsKey(incLabels);
     if (!points[key]) {
       points[key] = {
-        labels,
         value: 0,
       };
     }
-    points[labelsKey(labels)].value++;
+    points[labelsKey(incLabels)].value += value;
   };
 
-  const pointsFn = () => {
-    return Object.values(points);
-  };
+  const pointsFn = () => Object.values(points);
 
   return { name, inc, points, pointsFn };
 }
 
 function Counter(config) {
+  if (!config) {
+    throw new Error("Invalid/empty config");
+  }
   const metric = Metric(config.name, config.labels);
   const createTime = Date.now();
   const intervalReset = () => {};
 
-  const toTimeSeries = (endTime, resource) => {
-    return metric.pointsFn().map((point) => {
-      return {
-        metric: {
-          type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
-        },
-        metricKind: "CUMULATIVE",
-        resource,
-        points: [
-          {
-            interval: {
-              startTime: { seconds: createTime / 1000 },
-              endTime: { seconds: endTime / 1000 },
-            },
-            value: {
-              int64Value: point.value,
-            },
+  const toTimeSeries = (endTime, resource) =>
+    metric.pointsFn().map((point) => ({
+      metric: {
+        type: `custom.googleapis.com/${config.name}`,
+        labels: point.labels,
+      },
+      metricKind: "CUMULATIVE",
+      resource,
+      points: [
+        {
+          interval: {
+            startTime: { seconds: createTime / 1000 },
+            endTime: { seconds: endTime / 1000 },
           },
-        ],
-      };
-    });
-  };
+          value: {
+            int64Value: point.value,
+          },
+        },
+      ],
+    }));
 
   return {
     inc: metric.inc,
@@ -158,46 +167,53 @@ function Counter(config) {
 }
 
 function Gauge(config) {
+  if (!config) {
+    throw new Error("Invalid/empty config");
+  }
   const metric = Metric(config.name, config.labels);
 
-  const dec = (labels) => {
+  const dec = (labels, value) => {
+    if (labels !== Object(labels)) {
+      value = labels;
+      labels = null;
+    }
+    if (value === null || value === undefined) {
+      value = 1;
+    }
+
     const key = labelsKey(labels);
     if (!metric.points[key]) {
       metric.points[key] = {
-        labels,
         value: 0,
       };
     }
 
-    metric.points[labelsKey(labels)].value--;
+    metric.points[labelsKey(labels)].value -= value;
   };
 
   const intervalReset = () => {
     //noop as a gauge should persist its values between intervals
   };
 
-  const toTimeSeries = (endTime, resource) => {
-    return metric.pointsFn().map((point) => {
-      return {
-        metric: {
-          type: `custom.googleapis.com/${config.name}`,
-          labels: point.labels,
-        },
-        metricKind: "GAUGE",
-        resource,
-        points: [
-          {
-            interval: {
-              endTime: { seconds: endTime / 1000 },
-            },
-            value: {
-              int64Value: point.value,
-            },
+  const toTimeSeries = (endTime, resource) =>
+    metric.pointsFn().map((point) => ({
+      metric: {
+        type: `custom.googleapis.com/${config.name}`,
+        labels: point.labels,
+      },
+      metricKind: "GAUGE",
+      resource,
+      points: [
+        {
+          interval: {
+            endTime: { seconds: endTime / 1000 },
           },
-        ],
-      };
-    });
-  };
+          value: {
+            int64Value: point.value,
+          },
+        },
+      ],
+    }));
 
   return {
     inc: metric.inc,
@@ -213,21 +229,19 @@ function Gauge(config) {
 // (2021-10-04) was MIT licensed.
 
 function nsort(vals) {
-  return vals.sort((a, b) => {
-    return a - b;
-  });
+  return vals.sort((a, b) => a - b);
 }
 
 function percentile(sortedValues, ptile) {
-  if (sortedValues.length === 0 || ptile == null || ptile < 0) return NaN;
+  if (sortedValues.length === 0 || !ptile || ptile < 0) return NaN;
 
   // Fudge anything over 100 to 1.0
   if (ptile > 1) ptile = 1;
-  var i = sortedValues.length * ptile - 0.5;
+  const i = sortedValues.length * ptile - 0.5;
   if ((i | 0) === i) return sortedValues[i];
   // interpolated percentile -- using Estimation method
-  var int_part = i | 0;
-  var fract = i - int_part;
+  const int_part = i | 0;
+  const fract = i - int_part;
   return (
     (1 - fract) * sortedValues[int_part] +
     fract * sortedValues[Math.min(int_part + 1, sortedValues.length - 1)]
@@ -235,7 +249,15 @@ function percentile(sortedValues, ptile) {
 }
 
 function Summary(config) {
+  if (!config) {
+    throw new Error("Invalid/empty config");
+  }
+
   const name = config.name;
+  if (!name) {
+    throw new Error("name is required");
+  }
+
   const percentiles = (config && config.percentiles) || [0.5, 0.9, 0.99];
   const series = {};
 
@@ -256,8 +278,8 @@ function Summary(config) {
     series[key].observations.push(observation);
   };
 
-  const toTimeSeries = (endTime, resource) => {
-    return Object.values(series)
+  const toTimeSeries = (endTime, resource) =>
+    Object.values(series)
       .filter((s) => s.observations.length)
       .flatMap((s) => {
         const observations = s.observations;
@@ -279,7 +301,6 @@ function Summary(config) {
             points: [
               {
                 interval: {
-                  //startTime: { seconds: startTime / 1000 },
                   endTime: { seconds: endTime / 1000 },
                 },
                 value: {
@@ -290,7 +311,6 @@ function Summary(config) {
           };
         });
       });
-  };
 
   const startTimer = (labels) => {
     const start = process.hrtime.bigint();
@@ -304,9 +324,11 @@ function Summary(config) {
 }
 
 async function CloudRunResourceProvider() {
-  const project_id = await request("/computeMetadata/v1/project/project-id");
-  const locationResponse = await request("/computeMetadata/v1/instance/region");
-  const instance_id = await request("/computeMetadata/v1/instance/id");
+  const [project_id, locationResponse, instance_id] = await Promise.all([
+    request("/computeMetadata/v1/project/project-id"),
+    request("/computeMetadata/v1/instance/region"),
+    request("/computeMetadata/v1/instance/id"),
+  ]);
   const splitLocation = locationResponse.split("/");
   const location = splitLocation[splitLocation.length - 1];
   return {
@@ -387,21 +409,21 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   let intervalEnd;
 
   const counter = (config) => {
-    const counter = Counter(config);
-    metrics.push(counter);
-    return counter;
+    const counterMetric = Counter(config);
+    metrics.push(counterMetric);
+    return counterMetric;
   };
 
   const gauge = (config) => {
-    const gauge = Gauge(config);
-    metrics.push(gauge);
-    return gauge;
+    const gaugeMetric = Gauge(config);
+    metrics.push(gaugeMetric);
+    return gaugeMetric;
   };
 
   const summary = (config) => {
-    const summary = Summary(config);
-    metrics.push(summary);
-    return summary;
+    const summaryMetric = Summary(config);
+    metrics.push(summaryMetric);
+    return summaryMetric;
   };
 
   let resources;
@@ -418,19 +440,27 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
+      const timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
 
-      if (timeSeries.length > 0) {
-        logger.debug(`PushClient: Pushing metrics to StackDriver`);
-        await metricsClient.createTimeSeries({
-          name: metricsClient.projectPath(resource.labels.project_id),
-          timeSeries,
-        });
-        logger.debug(`PushClient: Done pushing metrics to StackDriver`);
+      logger.debug(`PushClient: found ${timeSeries.length} time series which should be pushed`);
+
+      // StackDriver/Cloud Monitoring has a limit of 200 time series per requests
+      // so we split our time series into multiple requests if needed
+      const requests = [];
+      for (let i = 0; i < timeSeries.length; i += 200) {
+        const chunk = timeSeries.slice(i, i + 200);
+        requests.push(
+          metricsClient.createTimeSeries({
+            name: metricsClient.projectPath(resource.labels.project_id),
+            timeSeries: chunk,
+          })
+        );
       }
+      await Promise.all(requests);
+      logger.debug("PushClient: Done pushing metrics to StackDriver");
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
     }
