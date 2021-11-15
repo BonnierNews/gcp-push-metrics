@@ -392,5 +392,31 @@ describe("gauge", () => {
         expect(series.find((s) => !s.metric.labels)).to.not.be.undefined;
       });
     });
+
+    describe(`${metricType.type} created without labels, incremented with labels`, () => {
+      before(() => {
+        ({ clock, metricsRequests } = fixture());
+        const client = PushClient({
+          projectId: "myproject",
+          resourceProvider: globalResourceProvider,
+        });
+        const metric = metricType.method(client)({
+          name: "responses",
+        });
+        metric.inc({ code: "2xx" });
+        clock.tick(60 * 1000);
+      });
+
+      after(() => clock.restore);
+
+      it("pushes two time series, one without labels and one with", () => {
+        expect(metricsRequests).to.have.lengthOf(1);
+        expect(metricsRequests[0].timeSeries).to.have.lengthOf(2);
+        const series = metricsRequests[0].timeSeries;
+        expect(series.find((s) => !s.metric.labels)).to.not.be.undefined;
+        expect(series.find((s) => s.metric.labels && s.metric.labels.code === "2xx")).to.not.be
+          .undefined;
+      });
+    });
   });
 });
