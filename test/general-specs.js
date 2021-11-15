@@ -160,3 +160,27 @@ describe("with invalid logger", () => {
     expect(fn).to.throw(/logger/);
   });
 });
+
+describe("with 201 metrics", () => {
+  let clock, metricsRequests, onPush;
+
+  before(() => {
+    ({ clock, metricsRequests, onPush } = fixture());
+    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    for (let i = 1; i < 202; i++) {
+      client.Counter({ name: `counter${i}` });
+    }
+  });
+
+  after(() => {
+    clock.restore();
+    process.removeAllListeners("SIGTERM");
+  });
+
+  describe("after the interval", () => {
+    before(() => clock.tick(60 * 1000));
+    it("pushes twice to StackDriver", async () => {
+      expect(metricsRequests).to.have.lengthOf(2);
+    });
+  });
+});

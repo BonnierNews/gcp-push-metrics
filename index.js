@@ -67,14 +67,22 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 
       metrics.forEach((metric) => metric.intervalReset());
 
-      if (timeSeries.length > 0) {
-        logger.debug("PushClient: Pushing metrics to StackDriver");
-        await metricsClient.createTimeSeries({
-          name: metricsClient.projectPath(resource.labels.project_id),
-          timeSeries,
-        });
-        logger.debug("PushClient: Done pushing metrics to StackDriver");
+      logger.debug(`PushClient: found ${timeSeries.length} time series which should be pushed`);
+
+      // StackDriver/Cloud Monitoring has a limit of 200 time series per requests
+      // so we split our time series into multiple requests if needed
+      const requests = [];
+      for (let i = 0; i < timeSeries.length; i += 200) {
+        const chunk = timeSeries.slice(i, i + 200);
+        requests.push(
+          metricsClient.createTimeSeries({
+            name: metricsClient.projectPath(resource.labels.project_id),
+            timeSeries: chunk,
+          })
+        );
       }
+      await Promise.all(requests);
+      logger.debug("PushClient: Done pushing metrics to StackDriver");
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
     }
