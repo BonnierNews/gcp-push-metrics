@@ -306,7 +306,7 @@ function Summary(config) {
 async function CloudRunResourceProvider() {
   const project_id = await request("/computeMetadata/v1/project/project-id");
   const locationResponse = await request("/computeMetadata/v1/instance/region");
-  let instance_id = await request("/computeMetadata/v1/instance/id");
+  const instance_id = await request("/computeMetadata/v1/instance/id");
   const splitLocation = locationResponse.split("/");
   const location = splitLocation[splitLocation.length - 1];
   return {

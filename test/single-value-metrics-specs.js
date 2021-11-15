@@ -1,5 +1,4 @@
-"use strict";
-
+/* eslint-disable no-unused-expressions */
 import { expect } from "chai";
 import { PushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";

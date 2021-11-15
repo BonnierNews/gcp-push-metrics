@@ -1,4 +1,3 @@
-"use strict";
 import monitoring from "@google-cloud/monitoring";
 import sinon from "sinon";
 
@@ -18,20 +17,17 @@ export default function fixture(createTimeSeriesStub) {
   }
   metricsRequests.length = 0;
   sandbox.restore();
-  let clock = sinon.useFakeTimers();
+  const clock = sinon.useFakeTimers();
   const stub = sandbox.stub(monitoring.MetricServiceClient.prototype);
-  stub.projectPath = (path) => {
-    return `projectpath:${path}`;
-  };
+  stub.projectPath = (path) => `projectpath:${path}`;
   stub.createTimeSeries = createTimeSeriesStub;
 
-  const onPush = () => {
-    return new Promise((resolve) => {
+  const onPush = () =>
+    new Promise((resolve) => {
       onPushListener = () => {
         resolve();
       };
     });
-  };
 
   return { clock, metricsRequests, onPush };
 }

@@ -1,4 +1,3 @@
-"use strict";
 import events from "events";
 
 // Make sure dates are displayed in the correct timezone

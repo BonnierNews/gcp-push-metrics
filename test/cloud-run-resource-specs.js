@@ -1,4 +1,3 @@
-"use strict";
 import { expect } from "chai";
 import { PushClient, CloudRunResourceProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";

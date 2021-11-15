@@ -1,4 +1,3 @@
-"use strict";
 import { MetricServiceClient } from "@google-cloud/monitoring";
 import Counter from "./lib/Counter.js";
 import Gauge from "./lib/Gauge.js";
@@ -32,21 +31,21 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   let intervalEnd;
 
   const counter = (config) => {
-    const counter = Counter(config);
-    metrics.push(counter);
-    return counter;
+    const counterMetric = Counter(config);
+    metrics.push(counterMetric);
+    return counterMetric;
   };
 
   const gauge = (config) => {
-    const gauge = Gauge(config);
-    metrics.push(gauge);
-    return gauge;
+    const gaugeMetric = Gauge(config);
+    metrics.push(gaugeMetric);
+    return gaugeMetric;
   };
 
   const summary = (config) => {
-    const summary = Summary(config);
-    metrics.push(summary);
-    return summary;
+    const summaryMetric = Summary(config);
+    metrics.push(summaryMetric);
+    return summaryMetric;
   };
 
   let resources;
@@ -63,18 +62,18 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
       }
 
       intervalEnd = Date.now();
-      let timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
+      const timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`PushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
 
       if (timeSeries.length > 0) {
-        logger.debug(`PushClient: Pushing metrics to StackDriver`);
+        logger.debug("PushClient: Pushing metrics to StackDriver");
         await metricsClient.createTimeSeries({
           name: metricsClient.projectPath(resource.labels.project_id),
           timeSeries,
         });
-        logger.debug(`PushClient: Done pushing metrics to StackDriver`);
+        logger.debug("PushClient: Done pushing metrics to StackDriver");
       }
     } catch (e) {
       logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
