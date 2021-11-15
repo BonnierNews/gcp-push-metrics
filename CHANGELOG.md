@@ -1,5 +1,9 @@
 ## Changelog
 
+# 2.1.1
+
+- Fixed bug introduced in 2.1.0 where counters and gauge incremented with labels didn't preserve the labels.
+
 # 2.1.0
 
 - Counter/Gauge.inc() + Gauge.dec() now supports specifying a value, like `myCounter.inc(3)` or `myGauge.inc({ color: "blue" }, 4)`.

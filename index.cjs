@@ -118,6 +118,7 @@ function Metric(name, labels) {
     const key = labelsKey(incLabels);
     if (!points[key]) {
       points[key] = {
+        labels: incLabels,
         value: 0,
       };
     }
@@ -184,6 +185,7 @@ function Gauge(config) {
     const key = labelsKey(labels);
     if (!metric.points[key]) {
       metric.points[key] = {
+        labels,
         value: 0,
       };
     }
