@@ -32,7 +32,7 @@ function labelsKey(labels) {
  */
 const cartesianProduct = (...values) =>
   values.reduce((product, value) =>
-    product.flatMap((previous) => value.map((v) => [previous, v].flat()))
+    product.flatMap((previous) => value.map((v) => [ previous, v ].flat()))
   );
 
 /**
@@ -82,7 +82,7 @@ function labelCombinations(labels) {
 }
 
 // "Base" functionality used by Counter and Gauge
-function Metric(name, labels) {
+function metric(name, labels) {
   if (!name) {
     throw new Error("name is required");
   }
@@ -90,7 +90,7 @@ function Metric(name, labels) {
   const points = {};
 
   if (labels) {
-    //Add a point for each unique combination of labels
+    // Add a point for each unique combination of labels
     const combinations = labelCombinations(labels);
     combinations.forEach((combo) => {
       const key = labelsKey(combo);
@@ -130,16 +130,16 @@ function Metric(name, labels) {
   return { name, inc, points, pointsFn };
 }
 
-function Counter(config) {
+function counter(config) {
   if (!config) {
     throw new Error("Invalid/empty config");
   }
-  const metric = Metric(config.name, config.labels);
+  const baseMetric = metric(config.name, config.labels);
   const createTime = Date.now();
   const intervalReset = () => {};
 
   const toTimeSeries = (endTime, resource) =>
-    metric.pointsFn().map((point) => ({
+    baseMetric.pointsFn().map((point) => ({
       metric: {
         type: `custom.googleapis.com/${config.name}`,
         labels: point.labels,
@@ -160,18 +160,18 @@ function Counter(config) {
     }));
 
   return {
-    inc: metric.inc,
-    points: metric.pointsFn,
+    inc: baseMetric.inc,
+    points: baseMetric.pointsFn,
     intervalReset,
-    toTimeSeries: toTimeSeries,
+    toTimeSeries,
   };
 }
 
-function Gauge(config) {
+function gauge(config) {
   if (!config) {
     throw new Error("Invalid/empty config");
   }
-  const metric = Metric(config.name, config.labels);
+  const baseMetric = metric(config.name, config.labels);
 
   const dec = (labels, value) => {
     if (labels !== Object(labels)) {
@@ -183,22 +183,22 @@ function Gauge(config) {
     }
 
     const key = labelsKey(labels);
-    if (!metric.points[key]) {
-      metric.points[key] = {
+    if (!baseMetric.points[key]) {
+      baseMetric.points[key] = {
         labels,
         value: 0,
       };
     }
 
-    metric.points[labelsKey(labels)].value -= value;
+    baseMetric.points[labelsKey(labels)].value -= value;
   };
 
   const intervalReset = () => {
-    //noop as a gauge should persist its values between intervals
+    // noop as a gauge should persist its values between intervals
   };
 
   const toTimeSeries = (endTime, resource) =>
-    metric.pointsFn().map((point) => ({
+    baseMetric.pointsFn().map((point) => ({
       metric: {
         type: `custom.googleapis.com/${config.name}`,
         labels: point.labels,
@@ -218,11 +218,11 @@ function Gauge(config) {
     }));
 
   return {
-    inc: metric.inc,
+    inc: baseMetric.inc,
     dec,
-    points: metric.pointsFn,
+    points: baseMetric.pointsFn,
     intervalReset,
-    toTimeSeries: toTimeSeries,
+    toTimeSeries,
   };
 }
 
@@ -242,15 +242,15 @@ function percentile(sortedValues, ptile) {
   const i = sortedValues.length * ptile - 0.5;
   if ((i | 0) === i) return sortedValues[i];
   // interpolated percentile -- using Estimation method
-  const int_part = i | 0;
-  const fract = i - int_part;
+  const intPart = i | 0;
+  const fract = i - intPart;
   return (
-    (1 - fract) * sortedValues[int_part] +
-    fract * sortedValues[Math.min(int_part + 1, sortedValues.length - 1)]
+    (1 - fract) * sortedValues[intPart] +
+    fract * sortedValues[Math.min(intPart + 1, sortedValues.length - 1)]
   );
 }
 
-function Summary(config) {
+function summary(config) {
   if (!config) {
     throw new Error("Invalid/empty config");
   }
@@ -260,7 +260,7 @@ function Summary(config) {
     throw new Error("name is required");
   }
 
-  const percentiles = (config && config.percentiles) || [0.5, 0.9, 0.99];
+  const percentiles = (config && config.percentiles) || [ 0.5, 0.9, 0.99 ];
   const series = {};
 
   const intervalReset = () => {
@@ -325,8 +325,9 @@ function Summary(config) {
   return { observe, startTimer, intervalReset, toTimeSeries };
 }
 
-async function CloudRunResourceProvider() {
-  const [project_id, locationResponse, instance_id] = await Promise.all([
+async function cloudRunResourceProvider() {
+  /* eslint-disable camelcase*/
+  const [ project_id, locationResponse, instance_id ] = await Promise.all([
     request("/computeMetadata/v1/project/project-id"),
     request("/computeMetadata/v1/instance/region"),
     request("/computeMetadata/v1/instance/id"),
@@ -353,6 +354,7 @@ async function CloudRunResourceProvider() {
       },
     },
   };
+  /* eslint-enable camelcase*/
 }
 
 function request(path) {
@@ -384,7 +386,7 @@ function request(path) {
   });
 }
 
-function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
+function pushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -410,20 +412,20 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   const metrics = [];
   let intervalEnd;
 
-  const counter = (config) => {
-    const counterMetric = Counter(config);
+  const createCounter = (config) => {
+    const counterMetric = counter(config);
     metrics.push(counterMetric);
     return counterMetric;
   };
 
-  const gauge = (config) => {
-    const gaugeMetric = Gauge(config);
+  const createGauge = (config) => {
+    const gaugeMetric = gauge(config);
     metrics.push(gaugeMetric);
     return gaugeMetric;
   };
 
-  const summary = (config) => {
-    const summaryMetric = Summary(config);
+  const createSummary = (config) => {
+    const summaryMetric = summary(config);
     metrics.push(summaryMetric);
     return summaryMetric;
   };
@@ -431,7 +433,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   let resources;
 
   async function push(exit) {
-    logger.debug("PushClient: Gathering and pushing metrics");
+    logger.debug("pushClient: Gathering and pushing metrics");
     try {
       if (!resources) {
         resources = await resourceProvider();
@@ -443,11 +445,11 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 
       intervalEnd = Date.now();
       const timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
-      logger.debug(`PushClient: Found ${timeSeries.length} time series`);
+      logger.debug(`pushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
 
-      logger.debug(`PushClient: found ${timeSeries.length} time series which should be pushed`);
+      logger.debug(`pushClient: found ${timeSeries.length} time series which should be pushed`);
 
       // StackDriver/Cloud Monitoring has a limit of 200 time series per requests
       // so we split our time series into multiple requests if needed
@@ -462,9 +464,9 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
         );
       }
       await Promise.all(requests);
-      logger.debug("PushClient: Done pushing metrics to StackDriver");
+      logger.debug("pushClient: Done pushing metrics to StackDriver");
     } catch (e) {
-      logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
+      logger.error(`pushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
@@ -472,8 +474,8 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 
   process.on("SIGTERM", push.bind(null, true));
 
-  return { Counter: counter, Gauge: gauge, Summary: summary };
+  return { counter: createCounter, gauge: createGauge, summary: createSummary };
 }
 
-exports.CloudRunResourceProvider = CloudRunResourceProvider;
-exports.PushClient = PushClient;
+exports.cloudRunResourceProvider = cloudRunResourceProvider;
+exports.pushClient = pushClient;

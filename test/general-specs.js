@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { PushClient } from "../index.js";
+import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
 
@@ -7,8 +7,8 @@ describe("initialized and no metrics", () => {
   let clock, metricsRequests;
   before(() => ({ clock, metricsRequests } = fixture()));
   after(() => clock.restore);
-  it("does not push after the interval", async () => {
-    PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+  it("does not push after the interval", () => {
+    pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
     clock.tick(61 * 1000);
     expect(metricsRequests).to.have.lengthOf(0);
   });
@@ -19,8 +19,8 @@ describe("with a metric", () => {
 
   before(() => {
     ({ clock, metricsRequests, onPush } = fixture());
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    client.Counter({ name: "num_requests" });
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    client.counter({ name: "num_requests" });
   });
 
   after(() => {
@@ -30,15 +30,15 @@ describe("with a metric", () => {
 
   describe("after the interval", () => {
     before(() => clock.tick(60 * 1000));
-    it("pushes once to StackDriver", async () => {
+    it("pushes once to StackDriver", () => {
       expect(metricsRequests).to.have.lengthOf(1);
     });
 
-    it("sends name as the project path", async () => {
+    it("sends name as the project path", () => {
       expect(metricsRequests[0]).to.have.property("name", "projectpath:myproject");
     });
 
-    it("sends timeSeries", async () => {
+    it("sends timeSeries", () => {
       expect(metricsRequests[0]).to.have.property("timeSeries").to.be.an("array");
     });
 
@@ -60,29 +60,29 @@ describe("with a metric", () => {
       return push;
     });
 
-    it("pushes again to StackDriver", async () => {
+    it("pushes again to StackDriver", () => {
       expect(metricsRequests).to.have.lengthOf(2);
     });
   });
 });
 
 describe("without resourceProvider", () => {
-  it("throws an error", async () => {
-    expect(PushClient).to.throw(/resourceProvider/);
+  it("throws an error", () => {
+    expect(pushClient).to.throw(/resourceProvider/);
   });
 });
 
 describe("with a intervalSeconds set to 120", () => {
   let clock, metricsRequests;
 
-  before(async () => {
+  before(() => {
     ({ clock, metricsRequests } = fixture());
-    const client = PushClient({
+    const client = pushClient({
       projectId: "myproject",
       intervalSeconds: 120,
       resourceProvider: globalResourceProvider,
     });
-    client.Counter({ name: "num_requests" });
+    client.counter({ name: "num_requests" });
   });
 
   after(() => clock.restore);
@@ -103,12 +103,12 @@ describe("with a intervalSeconds set to 120", () => {
 });
 
 describe("with a intervalSeconds set to 0", () => {
-  before(async () => {
+  before(() => {
     fixture();
   });
 
-  it("throws an error", async () => {
-    const fn = PushClient.bind(null, {
+  it("throws an error", () => {
+    const fn = pushClient.bind(null, {
       projectId: "myProject",
       intervalSeconds: 0,
       resourceProvider: globalResourceProvider,
@@ -122,7 +122,7 @@ describe("with a logger", () => {
   let clock;
 
   before(() => {
-    const createTimeSeriesStub = async function () {
+    const createTimeSeriesStub = function () {
       throw new Error("from client");
     };
     ({ clock } = fixture(createTimeSeriesStub));
@@ -132,12 +132,12 @@ describe("with a logger", () => {
         errors.push(msg);
       },
     };
-    const client = PushClient({
+    const client = pushClient({
       projectId: "myproject",
-      logger: logger,
+      logger,
       resourceProvider: globalResourceProvider,
     });
-    client.Counter({ name: "num_requests" });
+    client.counter({ name: "num_requests" });
   });
 
   after(() => clock.restore);
@@ -151,8 +151,8 @@ describe("with a logger", () => {
 });
 
 describe("with invalid logger", () => {
-  it("throws an error", async () => {
-    const fn = PushClient.bind(null, {
+  it("throws an error", () => {
+    const fn = pushClient.bind(null, {
       projectId: "myProject",
       logger: {},
       resourceProvider: globalResourceProvider,
@@ -162,13 +162,13 @@ describe("with invalid logger", () => {
 });
 
 describe("with 201 metrics", () => {
-  let clock, metricsRequests, onPush;
+  let clock, metricsRequests;
 
   before(() => {
-    ({ clock, metricsRequests, onPush } = fixture());
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    ({ clock, metricsRequests } = fixture());
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
     for (let i = 1; i < 202; i++) {
-      client.Counter({ name: `counter${i}` });
+      client.counter({ name: `counter${i}` });
     }
   });
 
@@ -179,7 +179,7 @@ describe("with 201 metrics", () => {
 
   describe("after the interval", () => {
     before(() => clock.tick(60 * 1000));
-    it("pushes twice to StackDriver", async () => {
+    it("pushes twice to StackDriver", () => {
       expect(metricsRequests).to.have.lengthOf(2);
     });
   });

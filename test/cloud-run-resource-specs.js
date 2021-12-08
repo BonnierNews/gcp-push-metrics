@@ -1,21 +1,21 @@
 import { expect } from "chai";
-import { PushClient, CloudRunResourceProvider } from "../index.js";
+import { pushClient, cloudRunResourceProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import nock from "nock";
 
 [
   {
-    method: (client) => client.Counter,
+    method: (client) => client.counter,
     type: "counter",
     observe: () => {},
   },
   {
-    method: (client) => client.Gauge,
+    method: (client) => client.gauge,
     type: "gauge",
     observe: () => {},
   },
   {
-    method: (client) => client.Summary,
+    method: (client) => client.summary,
     type: "summary",
     observe: (metric) => {
       metric.observe(1);
@@ -43,8 +43,8 @@ import nock from "nock";
         );
       scope.get("/computeMetadata/v1/project/project-id").reply(200, "my_project");
 
-      client = PushClient({
-        resourceProvider: CloudRunResourceProvider,
+      client = pushClient({
+        resourceProvider: cloudRunResourceProvider,
       });
       metric = metricType.method(client)({ name: "num_requests" });
       metricType.observe(metric);
@@ -88,7 +88,7 @@ import nock from "nock";
         return push;
       });
 
-      it("pushes again", async () => {
+      it("pushes again", () => {
         expect(metricsRequests).to.have.lengthOf(2);
       });
 

@@ -1,19 +1,19 @@
 import { expect } from "chai";
-import { PushClient } from "../index.js";
+import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
 
 [
   {
-    method: (client) => client.Counter,
+    method: (client) => client.counter,
     type: "counter",
   },
   {
-    method: (client) => client.Gauge,
+    method: (client) => client.gauge,
     type: "gauge",
   },
   {
-    method: (client) => client.Summary,
+    method: (client) => client.summary,
     type: "summary",
   },
 ].forEach((metricType) => {
@@ -21,7 +21,7 @@ import globalResourceProvider from "./helpers/globalResourceProvider.js";
     let client;
     before(() => {
       fixture();
-      client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+      client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
     });
     it("should throw when initialized without config", () => {
       expect(metricType.method(client)).to.throw(/config/);

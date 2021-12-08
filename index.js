@@ -1,10 +1,10 @@
 import { MetricServiceClient } from "@google-cloud/monitoring";
-import Counter from "./lib/Counter.js";
-import Gauge from "./lib/Gauge.js";
-import Summary from "./lib/Summary.js";
-import CloudRunResourceProvider from "./lib/CloudRunResourceProvider.js";
+import counter from "./lib/counter.js";
+import gauge from "./lib/gauge.js";
+import summary from "./lib/summary.js";
+import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
+function pushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -30,20 +30,20 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   const metrics = [];
   let intervalEnd;
 
-  const counter = (config) => {
-    const counterMetric = Counter(config);
+  const createCounter = (config) => {
+    const counterMetric = counter(config);
     metrics.push(counterMetric);
     return counterMetric;
   };
 
-  const gauge = (config) => {
-    const gaugeMetric = Gauge(config);
+  const createGauge = (config) => {
+    const gaugeMetric = gauge(config);
     metrics.push(gaugeMetric);
     return gaugeMetric;
   };
 
-  const summary = (config) => {
-    const summaryMetric = Summary(config);
+  const createSummary = (config) => {
+    const summaryMetric = summary(config);
     metrics.push(summaryMetric);
     return summaryMetric;
   };
@@ -51,7 +51,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
   let resources;
 
   async function push(exit) {
-    logger.debug("PushClient: Gathering and pushing metrics");
+    logger.debug("pushClient: Gathering and pushing metrics");
     try {
       if (!resources) {
         resources = await resourceProvider();
@@ -63,11 +63,11 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 
       intervalEnd = Date.now();
       const timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
-      logger.debug(`PushClient: Found ${timeSeries.length} time series`);
+      logger.debug(`pushClient: Found ${timeSeries.length} time series`);
 
       metrics.forEach((metric) => metric.intervalReset());
 
-      logger.debug(`PushClient: found ${timeSeries.length} time series which should be pushed`);
+      logger.debug(`pushClient: found ${timeSeries.length} time series which should be pushed`);
 
       // StackDriver/Cloud Monitoring has a limit of 200 time series per requests
       // so we split our time series into multiple requests if needed
@@ -82,9 +82,9 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
         );
       }
       await Promise.all(requests);
-      logger.debug("PushClient: Done pushing metrics to StackDriver");
+      logger.debug("pushClient: Done pushing metrics to StackDriver");
     } catch (e) {
-      logger.error(`PushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
+      logger.error(`pushClient: Unable to push metrics: ${e}. Stack: ${e.stack}`);
     }
     setTimeout(push, intervalSeconds * 1000);
   }
@@ -92,7 +92,7 @@ function PushClient({ intervalSeconds, logger, resourceProvider } = {}) {
 
   process.on("SIGTERM", push.bind(null, true));
 
-  return { Counter: counter, Gauge: gauge, Summary: summary };
+  return { counter: createCounter, gauge: createGauge, summary: createSummary };
 }
 
-export { PushClient, CloudRunResourceProvider };
+export { pushClient, cloudRunResourceProvider };

@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-expressions */
 import { expect } from "chai";
-import { PushClient } from "../index.js";
+import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
 
@@ -12,21 +12,21 @@ describe("counter", () => {
   before(() => {
     ({ clock, metricsRequests } = fixture());
     timeOfInit = Date.now() / 1000;
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    counter = client.Counter({ name: "num_requests" });
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    counter = client.counter({ name: "num_requests" });
     clock.tick(60 * 1000);
   });
 
   after(() => clock.restore);
 
   let counterSeries;
-  it("sends a single timeSeries", async () => {
+  it("sends a single timeSeries", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
     counterSeries = metricsRequests[0].timeSeries[0];
   });
 
-  it("sends name as the project path", async () => {
+  it("sends name as the project path", () => {
     expect(metricsRequests[0]).to.have.property("name", "projectpath:myproject");
   });
 
@@ -133,15 +133,15 @@ describe("gauge", () => {
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    gauge = client.Gauge({ name: "outgoing_requests" });
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    gauge = client.gauge({ name: "outgoing_requests" });
     clock.tick(60 * 1000);
   });
 
   after(() => clock.restore);
 
   let counterSeries;
-  it("sends a single timeSeries", async () => {
+  it("sends a single timeSeries", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
     counterSeries = metricsRequests[0].timeSeries[0];
@@ -257,11 +257,11 @@ describe("gauge", () => {
 
 [
   {
-    method: (client) => client.Counter,
+    method: (client) => client.counter,
     type: "counter",
   },
   {
-    method: (client) => client.Gauge,
+    method: (client) => client.gauge,
     type: "gauge",
   },
 ].forEach((metricType) => {
@@ -270,7 +270,7 @@ describe("gauge", () => {
     describe(`single ${metricType.type} created without labels object, not incremented`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
@@ -289,7 +289,7 @@ describe("gauge", () => {
     describe(`single ${metricType.type} created with empty labels object, not incremented`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
@@ -307,7 +307,7 @@ describe("gauge", () => {
     describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremeneted`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
@@ -329,15 +329,15 @@ describe("gauge", () => {
     describe(`${metricType.type} created with two labels with two values, not incremented`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
         metricType.method(client)({
           name: "responses",
           labels: {
-            code: ["2xx", "3xx"],
-            source: ["cdn", "internal"],
+            code: [ "2xx", "3xx" ],
+            source: [ "cdn", "internal" ],
           },
         });
         clock.tick(60 * 1000);
@@ -371,13 +371,13 @@ describe("gauge", () => {
     describe(`${metricType.type} created with one label with two values, incremented without labels`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
         const metric = metricType.method(client)({
           name: "responses",
-          labels: { code: ["2xx", "3xx"] },
+          labels: { code: [ "2xx", "3xx" ] },
         });
         metric.inc();
         clock.tick(60 * 1000);
@@ -396,7 +396,7 @@ describe("gauge", () => {
     describe(`${metricType.type} created without labels, incremented with labels`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
-        const client = PushClient({
+        const client = pushClient({
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });

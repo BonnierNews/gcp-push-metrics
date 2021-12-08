@@ -1,5 +1,10 @@
 ## Changelog
 
+# 3.0.0
+
+- Breaking: all functions that return objects have been renamed to use camel case to be in line with new linting rules.
+- Switched linting rules to eslint-config-exp
+
 # 2.1.1
 
 - Fixed bug introduced in 2.1.0 where counters and gauge incremented with labels didn't preserve the labels.

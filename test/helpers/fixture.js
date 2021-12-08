@@ -7,7 +7,7 @@ export default function fixture(createTimeSeriesStub) {
   const metricsRequests = [];
   let onPushListener;
   if (!createTimeSeriesStub) {
-    createTimeSeriesStub = async (request) => {
+    createTimeSeriesStub = (request) => {
       metricsRequests.push(request);
       if (onPushListener) {
         onPushListener();

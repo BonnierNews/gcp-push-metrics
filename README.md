@@ -19,11 +19,11 @@ npm install @bonniernews/gcp-push-metrics
 Let's start by looking at a basic use case, creating a counter and incrementing it.
 
 ```
-import {PushClient, CloudRunResourceProvider} from "@bonniernews/gcp-push-metrics";
+import {pushClient, cloudRunResourceProvider} from "@bonniernews/gcp-push-metrics";
 
-const client = PushClient({ resourceProvider: CloudRunResourceProvider });
+const client = pushClient({ resourceProvider: cloudRunResourceProvider });
 
-const counter = client.Counter({ name: "num_requests" });
+const counter = client.counter({ name: "num_requests" });
 counter.inc();
 ```
 
@@ -31,14 +31,14 @@ In the above example we import the package and create a client. In order to crea
 
 We then proceed to create a counter named "num_requests" and increment it. Once 60 seconds has passed the client will try to push a single time series to the Cloud Monitoring API.
 
-> Note: Every time `PushClient` is invoked it will create a new instance which in turn will set up a setTimeout loop that will push metrics collected by the client. In most cases you should only create a single client within your application and expose it as a singleton.
+> Note: Every time `pushClient` is invoked it will create a new instance which in turn will set up a setTimeout loop that will push metrics collected by the client. In most cases you should only create a single client within your application and expose it as a singleton.
 
 # Counters
 
 Counters are implemented as the CUMULATIVE metric kind and the value reported will continously increase. Let's look at an example:
 
 ```
-const counter = client.Counter({ name: "num_requests" });
+const counter = client.counter({ name: "num_requests" });
 
 setTimeout(() => {
     counter.inc();
@@ -63,7 +63,7 @@ After 240 seconds the client will again push the time series with **3** as value
 Gauges are point in time metrics that can both be increased and decresed. Example:
 
 ```
-const gauge = client.Gauge({ name: "requests_in_progress" });
+const gauge = client.gauge({ name: "requests_in_progress" });
 
 setTimeout(() => {
     gauge.inc();
@@ -88,7 +88,7 @@ After 240 seconds the client will again push the time series with **1** as value
 Summaries aggregate and calculate percentiles from observed values. The observed values are reset between each interval (60 seconds). Contrary to counters and gauges summary metrics will only be sent if there is at least one observation during the interval. Example:
 
 ```
-const summary = client.Summary({
+const summary = client.summary({
     name: "response_time",
     percentiles: [0.5, 0.9]
 });
@@ -117,7 +117,7 @@ If you don't specify percentiles when creating a summary it will default to `[0.
 As summaries are commonly used to measure execution or response times the summary object provides a convenience method for observing durations:
 
 ```
-const summary = client.Summary({
+const summary = client.summary({
     name: "response_time",
 });
 
@@ -133,7 +133,7 @@ end();
 All methods for changing the values of metrics (counter.inc, summary.observe etc) supports an optional labels object which can contain one or more labels and values. Let's look at an example:
 
 ```
-const counter = client.Counter({ name: "num_requests" });
+const counter = client.counter({ name: "num_requests" });
 
 setTimeout(() => {
     counter.inc({ response_code: "2xx" });
@@ -156,13 +156,13 @@ As we saw in the above example the client will push time series for created coun
 This behavior can be changed by specifying labels when creating counters and gauges. In order to disable sending the un-labeled version of these metric types we can create them with an empty labels object, like this:
 
 ```
-const counter = client.Counter({ labels: {} });
+const counter = client.counter({ labels: {} });
 ```
 
 We can also specify known label combinations up front, like this:
 
 ```
-const counter = client.Counter({
+const counter = client.counter({
     labels: {
         response_code: ["2xx", "3xx", "4xx", "5xx"]
     }
@@ -172,7 +172,7 @@ const counter = client.Counter({
 Let's look at a concrete example:
 
 ```
-const counter = client.Counter({
+const counter = client.counter({
     labels: {
         response_code: ["2xx", "3xx", "4xx", "5xx"],
         source: ["internal", "cdn"]
@@ -225,7 +225,7 @@ Note that the above example will only work when metrics are collected from a sin
 
 ## Cloud Run resource provider
 
-The package ships with a pre-built resource provider for applications deployed on Cloud Run, `CloudRunResourceProvider`. This resource provider will use the [generic_node](https://cloud.google.com/monitoring/api/resources#tag_generic_node) resource type. It maps the labels for the resource in the following way:
+The package ships with a pre-built resource provider for applications deployed on Cloud Run, `cloudRunResourceProvider`. This resource provider will use the [generic_node](https://cloud.google.com/monitoring/api/resources#tag_generic_node) resource type. It maps the labels for the resource in the following way:
 
 - `project_id` - fetched from the [container instance metadata servers](https://cloud.google.com/run/docs/reference/container-contract#metadata-server) `/computeMetadata/v1/project/project-id` endpoint.
 - `location` - fetched and parsed from the [container instance metadata servers](https://cloud.google.com/run/docs/reference/container-contract#metadata-server) `/computeMetadata/v1/instance/region` endpoint.

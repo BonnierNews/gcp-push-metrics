@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-expressions */
 import { expect } from "chai";
-import { PushClient } from "../index.js";
+import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
 
@@ -10,10 +10,10 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary = client.Summary({
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary = client.summary({
       name: "response_time",
-      percentiles: [0.5, 0.9],
+      percentiles: [ 0.5, 0.9 ],
     });
     summary.observe(10);
     summary.observe(20);
@@ -24,7 +24,7 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
   after(() => clock.restore);
 
   let fiftySeries, ninetySeries;
-  it("sends two time series, labeled with the percentiles", async () => {
+  it("sends two time series, labeled with the percentiles", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(2);
     fiftySeries = metricsRequests[0].timeSeries.find((s) => s.metric.labels.percentile === "50");
@@ -81,19 +81,17 @@ describe("summary with percentiles 50 and 90 and observations 10, 20 and 30 have
 describe("two summaries", () => {
   let summary1, summary2;
   let clock, metricsRequests;
-  let timeOfInit;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary1 = client.Summary({
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary1 = client.summary({
       name: "response_time",
-      percentiles: [0.5],
+      percentiles: [ 0.5 ],
     });
-    summary2 = client.Summary({
+    summary2 = client.summary({
       name: "outbound_time",
-      percentiles: [0.5],
+      percentiles: [ 0.5 ],
     });
     clock.tick(60 * 1000);
   });
@@ -101,7 +99,7 @@ describe("two summaries", () => {
   after(() => clock.restore);
 
   describe("when no observations have been recorded", () => {
-    it("does not push", async () => {
+    it("does not push", () => {
       expect(metricsRequests).to.have.lengthOf(0);
     });
   });
@@ -150,15 +148,15 @@ describe("observed summary created without percentiles specified", () => {
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary = client.Summary({ name: "response_time" });
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary = client.summary({ name: "response_time" });
     summary.observe(10);
     summary.observe(20);
     summary.observe(30);
     clock.tick(60 * 1000);
   });
 
-  it("sends time series for percentiles 50, 90 and 99", async () => {
+  it("sends time series for percentiles 50, 90 and 99", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(3);
     const fiftySeries = metricsRequests[0].timeSeries.find(
@@ -177,17 +175,15 @@ describe("observed summary created without percentiles specified", () => {
 });
 
 describe("summary observed with labels", () => {
-  let timeOfInit;
   let summary;
   let clock, metricsRequests;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary = client.Summary({
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary = client.summary({
       name: "response_time",
-      percentiles: [0.5],
+      percentiles: [ 0.5 ],
     });
     summary.observe(10, { code: "2" });
     summary.observe(10, { code: "2" });
@@ -198,7 +194,7 @@ describe("summary observed with labels", () => {
 
   after(() => clock.restore);
 
-  it("sends time series for each unique label combination", async () => {
+  it("sends time series for each unique label combination", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(3);
 
@@ -226,17 +222,15 @@ describe("summary observed with labels", () => {
 });
 
 describe("summary.timer ended after two seconds", () => {
-  let timeOfInit;
   let summary;
   let clock, metricsRequests;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary = client.Summary({
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary = client.summary({
       name: "response_time",
-      percentiles: [0.5],
+      percentiles: [ 0.5 ],
     });
     const end = summary.startTimer();
     setTimeout(end, 2000);
@@ -245,7 +239,7 @@ describe("summary.timer ended after two seconds", () => {
 
   after(() => clock.restore);
 
-  it("sends a time series for the 50th percentile with 2 (ish) as value", async () => {
+  it("sends a time series for the 50th percentile with 2 (ish) as value", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
     const fiftySeries = metricsRequests[0].timeSeries.find(
@@ -257,17 +251,15 @@ describe("summary.timer ended after two seconds", () => {
 });
 
 describe("summary.timer with labels ended after two seconds", () => {
-  let timeOfInit;
   let summary;
   let clock, metricsRequests;
 
   before(() => {
     ({ clock, metricsRequests } = fixture());
-    timeOfInit = Date.now();
-    const client = PushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
-    summary = client.Summary({
+    const client = pushClient({ projectId: "myproject", resourceProvider: globalResourceProvider });
+    summary = client.summary({
       name: "response_time",
-      percentiles: [0.5],
+      percentiles: [ 0.5 ],
     });
     const end = summary.startTimer({
       code: "2xx",
@@ -279,7 +271,7 @@ describe("summary.timer with labels ended after two seconds", () => {
 
   after(() => clock.restore);
 
-  it("sends a time series with the labels for the 50th percentile with 2 (ish) as value", async () => {
+  it("sends a time series with the labels for the 50th percentile with 2 (ish) as value", () => {
     expect(metricsRequests).to.have.lengthOf(1);
     expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
     const fiftySeries = metricsRequests[0].timeSeries.find(
