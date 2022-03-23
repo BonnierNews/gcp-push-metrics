@@ -10,7 +10,7 @@ Its API is heavily inspired by the excellent [prom-client](https://github.com/si
 
 ## Installation
 
-```
+```sh
 npm install @bonniernews/gcp-push-metrics
 ```
 
@@ -18,7 +18,7 @@ npm install @bonniernews/gcp-push-metrics
 
 Let's start by looking at a basic use case, creating a counter and incrementing it.
 
-```
+```js
 import {pushClient, cloudRunResourceProvider} from "@bonniernews/gcp-push-metrics";
 
 const client = pushClient({ resourceProvider: cloudRunResourceProvider });
@@ -37,7 +37,7 @@ We then proceed to create a counter named "num_requests" and increment it. Once 
 
 Counters are implemented as the CUMULATIVE metric kind and the value reported will continously increase. Let's look at an example:
 
-```
+```js
 const counter = client.counter({ name: "num_requests" });
 
 setTimeout(() => {
@@ -62,7 +62,7 @@ After 240 seconds the client will again push the time series with **3** as value
 
 Gauges are point in time metrics that can both be increased and decresed. Example:
 
-```
+```js
 const gauge = client.gauge({ name: "requests_in_progress" });
 
 setTimeout(() => {
@@ -87,7 +87,7 @@ After 240 seconds the client will again push the time series with **1** as value
 
 Summaries aggregate and calculate percentiles from observed values. The observed values are reset between each interval (60 seconds). Contrary to counters and gauges summary metrics will only be sent if there is at least one observation during the interval. Example:
 
-```
+```js
 const summary = client.summary({
     name: "response_time",
     percentiles: [0.5, 0.9]
@@ -116,7 +116,7 @@ If you don't specify percentiles when creating a summary it will default to `[0.
 
 As summaries are commonly used to measure execution or response times the summary object provides a convenience method for observing durations:
 
-```
+```js
 const summary = client.summary({
     name: "response_time",
 });
@@ -132,7 +132,7 @@ end();
 
 All methods for changing the values of metrics (counter.inc, summary.observe etc) supports an optional labels object which can contain one or more labels and values. Let's look at an example:
 
-```
+```js
 const counter = client.counter({ name: "num_requests" });
 
 setTimeout(() => {
@@ -155,13 +155,13 @@ As we saw in the above example the client will push time series for created coun
 
 This behavior can be changed by specifying labels when creating counters and gauges. In order to disable sending the un-labeled version of these metric types we can create them with an empty labels object, like this:
 
-```
+```js
 const counter = client.counter({ labels: {} });
 ```
 
 We can also specify known label combinations up front, like this:
 
-```
+```js
 const counter = client.counter({
     labels: {
         response_code: ["2xx", "3xx", "4xx", "5xx"]
@@ -171,7 +171,7 @@ const counter = client.counter({
 
 Let's look at a concrete example:
 
-```
+```js
 const counter = client.counter({
     labels: {
         response_code: ["2xx", "3xx", "4xx", "5xx"],
@@ -202,7 +202,7 @@ When pushing metrics to Cloud Monitoring one must specify a [resource type](http
 
 A minimalistic resource provider may look like this:
 
-```
+```js
 function globalResourceProvider() {
   return {
     exit: {
