@@ -1,10 +1,10 @@
-import { MetricServiceClient } from "@google-cloud/monitoring";
+import monitoring from "@google-cloud/monitoring";
 import counter from "./lib/counter.js";
 import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
 import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function pushClient({ intervalSeconds, logger, resourceProvider } = {}) {
+function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -26,7 +26,22 @@ function pushClient({ intervalSeconds, logger, resourceProvider } = {}) {
     throw new Error("logger must have methods 'debug' and 'error'");
   }
 
-  const metricsClient = new MetricServiceClient();
+  const opts = {};
+  if (createTimeSeriesTimeoutSeconds) {
+    opts.clientConfig = {
+      interfaces: {
+        "google.monitoring.v3.MetricService": {
+          methods: {
+            CreateTimeSeries: {
+              timeout_millis: createTimeSeriesTimeoutSeconds * 1000,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  const metricsClient = new monitoring.MetricServiceClient(opts);
   const metrics = [];
   let intervalEnd;
 
