@@ -15,7 +15,7 @@ describe("options", () => {
     sandbox.restore();
   });
   describe("without createTimeSeriesTimeoutSeconds", () => {
-    it("is not passed to MetricServiceClient", () => {
+    it("a default is passed to MetricServiceClient", () => {
       let ctorOpts;
       class FakeMetricServiceClient {
         constructor(opts) {
@@ -27,7 +27,19 @@ describe("options", () => {
         projectId: "myproject",
         resourceProvider: globalResourceProvider,
       });
-      expect(ctorOpts).to.eql({});
+      expect(ctorOpts).to.eql({
+        clientConfig: {
+          interfaces: {
+            "google.monitoring.v3.MetricService": {
+              methods: {
+                CreateTimeSeries: {
+                  timeout_millis: 40000,
+                },
+              },
+            },
+          },
+        },
+      });
     });
   });
   describe("with createTimeSeriesTimeoutSeconds", () => {

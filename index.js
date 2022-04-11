@@ -4,7 +4,7 @@ import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
 import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds, logger, resourceProvider } = {}) {
+function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
