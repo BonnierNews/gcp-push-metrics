@@ -1,5 +1,5 @@
 import monitoring from "@google-cloud/monitoring";
-import { createSandbox, useFakeTimers } from "sinon";
+import { createSandbox } from "sinon";
 
 const sandbox = createSandbox();
 
@@ -15,9 +15,11 @@ export default function fixture(createTimeSeriesStub) {
       return "something";
     };
   }
+
   metricsRequests.length = 0;
   sandbox.restore();
-  const clock = useFakeTimers();
+
+  const clock = sandbox.useFakeTimers();
   const stub = sandbox.stub(monitoring.MetricServiceClient.prototype);
   stub.projectPath = (path) => `projectpath:${path}`;
   stub.createTimeSeries = createTimeSeriesStub;
