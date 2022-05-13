@@ -1,4 +1,5 @@
 import monitoring from "@google-cloud/monitoring";
+
 import counter from "./lib/counter.js";
 import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
@@ -28,17 +29,7 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
 
   const opts = {};
   if (createTimeSeriesTimeoutSeconds) {
-    opts.clientConfig = {
-      interfaces: {
-        "google.monitoring.v3.MetricService": {
-          methods: {
-            CreateTimeSeries: {
-              timeout_millis: createTimeSeriesTimeoutSeconds * 1000,
-            },
-          },
-        },
-      },
-    };
+    opts.clientConfig = { interfaces: { "google.monitoring.v3.MetricService": { methods: { CreateTimeSeries: { timeout_millis: createTimeSeriesTimeoutSeconds * 1000 } } } } };
   }
 
   const metricsClient = new monitoring.MetricServiceClient(opts);

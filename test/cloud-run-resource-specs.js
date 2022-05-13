@@ -1,7 +1,8 @@
 import { expect } from "chai";
+import nock from "nock";
+
 import { pushClient, cloudRunResourceProvider } from "../index.js";
 import fixture from "./helpers/fixture.js";
-import nock from "nock";
 
 [
   {
@@ -29,9 +30,7 @@ import nock from "nock";
       process.env.K_REVISION = "hello-world.1";
       process.env.K_SERVICE = "hello-world";
       process.env.K_CONFIGURATION = "hello-world";
-      const scope = nock("http://metadata.google.internal", {
-        reqheaders: { "Metadata-Flavor": "Google" },
-      });
+      const scope = nock("http://metadata.google.internal", { reqheaders: { "Metadata-Flavor": "Google" } });
       scope
         .get("/computeMetadata/v1/instance/region")
         .reply(200, "projects/385402317761/regions/europe-west1");
@@ -43,9 +42,7 @@ import nock from "nock";
         );
       scope.get("/computeMetadata/v1/project/project-id").reply(200, "my_project");
 
-      client = pushClient({
-        resourceProvider: cloudRunResourceProvider,
-      });
+      client = pushClient({ resourceProvider: cloudRunResourceProvider });
       metric = metricType.method(client)({ name: "num_requests" });
       metricType.observe(metric);
     });

@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-expressions */
 import { expect } from "chai";
+
 import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
@@ -400,9 +401,7 @@ describe("gauge", () => {
           projectId: "myproject",
           resourceProvider: globalResourceProvider,
         });
-        const metric = metricType.method(client)({
-          name: "responses",
-        });
+        const metric = metricType.method(client)({ name: "responses" });
         metric.inc({ code: "2xx" });
         clock.tick(60 * 1000);
       });

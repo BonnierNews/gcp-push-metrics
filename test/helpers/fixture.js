@@ -1,7 +1,7 @@
 import monitoring from "@google-cloud/monitoring";
-import sinon from "sinon";
+import { createSandbox, useFakeTimers } from "sinon";
 
-const sandbox = sinon.createSandbox();
+const sandbox = createSandbox();
 
 export default function fixture(createTimeSeriesStub) {
   const metricsRequests = [];
@@ -17,7 +17,7 @@ export default function fixture(createTimeSeriesStub) {
   }
   metricsRequests.length = 0;
   sandbox.restore();
-  const clock = sinon.useFakeTimers();
+  const clock = useFakeTimers();
   const stub = sandbox.stub(monitoring.MetricServiceClient.prototype);
   stub.projectPath = (path) => `projectpath:${path}`;
   stub.createTimeSeries = createTimeSeriesStub;

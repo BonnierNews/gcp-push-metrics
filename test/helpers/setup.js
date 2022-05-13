@@ -1,4 +1,5 @@
 import events from "events";
+import * as chai from "chai";
 
 // Make sure dates are displayed in the correct timezone
 process.env.TZ = "Europe/Stockholm";
@@ -7,8 +8,6 @@ process.env.TZ = "Europe/Stockholm";
 // real elasticsearch indices etc.
 // This file is required with ./test/mocha.opts
 process.env.NODE_ENV = "test";
-
-import * as chai from "chai";
 
 chai.config.truncateThreshold = 0;
 chai.config.includeStack = true;

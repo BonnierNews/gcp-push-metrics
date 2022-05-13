@@ -1,4 +1,5 @@
 import { expect } from "chai";
+
 import { pushClient } from "../index.js";
 import fixture from "./helpers/fixture.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";

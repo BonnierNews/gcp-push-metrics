@@ -1,10 +1,11 @@
 import { expect } from "chai";
+import monitoring from "@google-cloud/monitoring";
+import { createSandbox } from "sinon";
+
 import { pushClient } from "../index.js";
 import globalResourceProvider from "./helpers/globalResourceProvider.js";
-import monitoring from "@google-cloud/monitoring";
-import sinon from "sinon";
 
-const sandbox = sinon.createSandbox();
+const sandbox = createSandbox();
 
 describe("options", () => {
   let stub;
@@ -27,19 +28,7 @@ describe("options", () => {
         projectId: "myproject",
         resourceProvider: globalResourceProvider,
       });
-      expect(ctorOpts).to.eql({
-        clientConfig: {
-          interfaces: {
-            "google.monitoring.v3.MetricService": {
-              methods: {
-                CreateTimeSeries: {
-                  timeout_millis: 40000,
-                },
-              },
-            },
-          },
-        },
-      });
+      expect(ctorOpts).to.eql({ clientConfig: { interfaces: { "google.monitoring.v3.MetricService": { methods: { CreateTimeSeries: { timeout_millis: 40000 } } } } } });
     });
   });
   describe("with createTimeSeriesTimeoutSeconds", () => {
@@ -57,19 +46,7 @@ describe("options", () => {
         createTimeSeriesTimeoutSeconds: 60,
       });
       expect(ctorOpts).to.eql(
-        {
-          clientConfig: {
-            interfaces: {
-              "google.monitoring.v3.MetricService": {
-                methods: {
-                  CreateTimeSeries: {
-                    timeout_millis: 60000,
-                  },
-                },
-              },
-            },
-          },
-        }
+        { clientConfig: { interfaces: { "google.monitoring.v3.MetricService": { methods: { CreateTimeSeries: { timeout_millis: 60000 } } } } } }
       );
     });
   });
