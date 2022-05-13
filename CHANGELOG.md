@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.0
+- Increased default timeout, from 12 to 40 seconds, when sending metrics to GCP. The timeout can also be configured.
+
 ## 3.0.0
 
 - Breaking: all functions that return objects have been renamed to use camel case to be in line with new linting rules.
