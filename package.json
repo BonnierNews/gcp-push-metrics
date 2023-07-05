@@ -34,6 +34,6 @@
     "sinon": "^14.0.0"
   },
   "dependencies": {
-    "@google-cloud/monitoring": "^2.3.5"
+    "@google-cloud/monitoring": "^3.0.5"
   }
 }
