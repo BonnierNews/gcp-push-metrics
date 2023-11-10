@@ -418,7 +418,7 @@ function pushClient({ intervalSeconds, logger, resourceProvider, grpcKeepaliveTi
     opts["grpc.keepalive_time_ms"] = grpcKeepaliveTimeMs;
   }
 
-  const metricsClient = new monitoring.MetricServiceClient();
+  const metricsClient = new monitoring.MetricServiceClient(opts);
   const metrics = [];
   let intervalEnd;
 
