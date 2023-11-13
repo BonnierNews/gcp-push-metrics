@@ -5,7 +5,7 @@ import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
 import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider } = {}) {
+function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider, grpcKeepaliveTimeoutMs, grpcKeepaliveTimeMs } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -30,6 +30,14 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
   const opts = {};
   if (createTimeSeriesTimeoutSeconds) {
     opts.clientConfig = { interfaces: { "google.monitoring.v3.MetricService": { methods: { CreateTimeSeries: { timeout_millis: createTimeSeriesTimeoutSeconds * 1000 } } } } };
+  }
+
+  if (grpcKeepaliveTimeoutMs) {
+    opts["grpc.keepalive_timeout_ms"] = grpcKeepaliveTimeoutMs;
+  }
+
+  if (grpcKeepaliveTimeMs) {
+    opts["grpc.keepalive_time_ms"] = grpcKeepaliveTimeMs;
   }
 
   const metricsClient = new monitoring.MetricServiceClient(opts);

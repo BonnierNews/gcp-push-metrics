@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.2.0
+
+- Expose grpc options `keepalive_timeout_ms` and `keepalive_time_ms` to counter DEADLINE_EXCEEDED errors thrown by google when pushing metrics.
+
 ## 3.1.1
 
 - Bump deps
