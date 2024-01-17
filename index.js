@@ -78,6 +78,7 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
       intervalEnd = Date.now();
       const timeSeries = metrics.map((metric) => metric.toTimeSeries(intervalEnd, resource)).flat();
       logger.debug(`pushClient: Found ${timeSeries.length} time series`);
+      logger.debug(`pushClient: Found time series ${JSON.stringify(timeSeries)}`);
 
       metrics.forEach((metric) => metric.intervalReset());
 
@@ -88,6 +89,7 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
       const requests = [];
       for (let i = 0; i < timeSeries.length; i += 200) {
         const chunk = timeSeries.slice(i, i + 200);
+        logger.debug(`pushClient: Chunk: ${JSON.stringify(chunk)}`);
         requests.push(
           metricsClient.createTimeSeries({
             name: metricsClient.projectPath(resource.labels.project_id),
