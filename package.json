@@ -34,7 +34,7 @@
     "sinon": "^14.0.0"
   },
   "dependencies": {
-    "@google-cloud/monitoring": "^3.0.5"
+    "@google-cloud/monitoring": "^4.0.0"
   },
   "files": [
     "README.md",
