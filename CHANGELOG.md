@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.0
+
+- Bumped deps
+- Breaking change: Require node version >=18.18
+
 ## 3.2.1
 
 - Fix cjs dist

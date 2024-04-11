@@ -1,6 +1,6 @@
 {
   "name": "@bonniernews/gcp-push-metrics",
-  "version": "3.2.1",
+  "version": "4.0.0",
   "description": "Push custom metrics to Google Cloud Monitoring.",
   "main": "index.js",
   "type": "module",
@@ -23,18 +23,21 @@
   "bugs": {
     "url": "https://github.com/BonnierNews/gcp-push-metrics/issues"
   },
+  "engines": {
+    "node": ">=18.18"
+  },
   "homepage": "https://github.com/BonnierNews/gcp-push-metrics#readme",
   "devDependencies": {
-    "chai": "^4.3.6",
-    "eslint": "^8.15.0",
-    "eslint-config-exp": "^0.2.0",
-    "mocha": "^10.0.0",
-    "nock": "^13.2.4",
-    "rollup": "^2.72.1",
-    "sinon": "^14.0.0"
+    "@bonniernews/eslint-config": "^1.2.0",
+    "chai": "^5.1.0",
+    "eslint": "^8.0.0",
+    "mocha": "^10.4.0",
+    "nock": "^13.5.4",
+    "rollup": "^4.14.1",
+    "sinon": "^17.0.1"
   },
   "dependencies": {
-    "@google-cloud/monitoring": "^3.0.5"
+    "@google-cloud/monitoring": "^4.0.0"
   },
   "files": [
     "README.md",

@@ -1,6 +1,4 @@
 {
   "root": true,
-  "extends": [
-    "exp/all"
-  ]
+  "extends": [ "@bonniernews/eslint-config/all" ]
 }
