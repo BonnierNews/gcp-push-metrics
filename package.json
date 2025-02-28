@@ -8,7 +8,9 @@
     "test": "mocha",
     "posttest": "npm run lint",
     "lint": "eslint .",
-    "prepack": "rollup index.js --format cjs --file index.cjs"
+    "prepack": "rollup index.js --format cjs --file index.cjs",
+    "postpublish": "npm run publish-internal",
+    "publish-internal": "npm publish --access public --ignore-scripts --@bonniernews:registry='https://npm.pkg.github.com'"
   },
   "exports": {
     "import": "./index.js",
