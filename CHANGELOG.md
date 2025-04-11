@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.1.0
+- Added parameter `disabled` for disabling pushing metrics locally
+
 ## 4.0.0
 
 - Bumped deps
