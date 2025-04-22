@@ -5,7 +5,7 @@ import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
 import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider, grpcKeepaliveTimeoutMs, grpcKeepaliveTimeMs } = {}) {
+function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider, grpcKeepaliveTimeoutMs, grpcKeepaliveTimeMs, disabled } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -102,9 +102,12 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
     }
     setTimeout(push, intervalSeconds * 1000);
   }
-  setTimeout(push, intervalSeconds * 1000);
 
-  process.on("SIGTERM", push.bind(null, true));
+  if (!disabled) {
+    setTimeout(push, intervalSeconds * 1000);
+
+    process.on("SIGTERM", push.bind(null, true));
+  }
 
   return { counter: createCounter, gauge: createGauge, summary: createSummary };
 }

@@ -33,6 +33,17 @@ We then proceed to create a counter named "num_requests" and increment it. Once 
 
 > Note: Every time `pushClient` is invoked it will create a new instance which in turn will set up a setTimeout loop that will push metrics collected by the client. In most cases you should only create a single client within your application and expose it as a singleton.
 
+### Disabling locally
+
+When running applications locally, for instance in a development environment, you may want to disable pushing metrics to the Cloud Monitoring API. This can be done by passing `disabled: true` to the client:
+
+```js
+const client = pushClient({
+  resourceProvider: cloudRunResourceProvider,
+  disabled: process.env.NODE_ENV === "development"
+});
+```
+
 ## Counters
 
 Counters are implemented as the CUMULATIVE metric kind and the value reported will continously increase. Let's look at an example:
