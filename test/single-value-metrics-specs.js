@@ -254,6 +254,39 @@ describe("gauge", () => {
       expect(metricsRequests[4].timeSeries[0].points[0].value.int64Value).to.eql(4);
     });
   });
+
+  describe("when the gauge has been set to 321 and another interval has passed", () => {
+    before(() => {
+      gauge.set(321);
+      clock.tick(60 * 1000);
+    });
+
+    it("should have pushed a sixth time", () => {
+      expect(metricsRequests).to.have.lengthOf(6);
+    });
+
+    it("should have pushed the metric with 321 as value", () => {
+      expect(metricsRequests[5].timeSeries[0].points[0].value.int64Value).to.eql(321);
+    });
+  });
+
+  describe("when the gauge has been set to 32 with label '{code: 500}' and another interval has passed", () => {
+    before(() => {
+      gauge.set({ code: 500 }, 32);
+      clock.tick(60 * 1000);
+    });
+
+    it("should have pushed a seventh time", () => {
+      expect(metricsRequests).to.have.lengthOf(7);
+    });
+
+    it("should have pushed the metric with 321 and 32 as value", () => {
+      expect(metricsRequests[6].timeSeries[0].points[0].value.int64Value).to.eql(321);
+      expect(metricsRequests[6].timeSeries[0].metric.labels).to.eql(null);
+      expect(metricsRequests[6].timeSeries[1].points[0].value.int64Value).to.eql(32);
+      expect(metricsRequests[6].timeSeries[1].metric.labels).to.have.property("code", 500);
+    });
+  });
 });
 
 [
