@@ -1,6 +1,6 @@
 {
   "name": "@bonniernews/gcp-push-metrics",
-  "version": "4.3.0-alpha.0",
+  "version": "4.3.0",
   "description": "Push custom metrics to Google Cloud Monitoring.",
   "main": "index.js",
   "type": "module",
@@ -8,9 +8,7 @@
     "test": "mocha",
     "posttest": "npm run lint",
     "lint": "eslint .",
-    "prepack": "rollup index.js --format cjs --file index.cjs",
-    "postpublish": "npm run publish-internal",
-    "publish-internal": "npm publish --access public --ignore-scripts --@bonniernews:registry='https://npm.pkg.github.com'"
+    "prepack": "rollup index.js --format cjs --file index.cjs"
   },
   "exports": {
     "import": "./index.js",
