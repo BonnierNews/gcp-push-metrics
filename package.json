@@ -1,6 +1,6 @@
 {
   "name": "@bonniernews/gcp-push-metrics",
-  "version": "4.3.0-alpha.0",
+  "version": "4.3.0",
   "description": "Push custom metrics to Google Cloud Monitoring.",
   "main": "index.js",
   "type": "module",
