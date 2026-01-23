@@ -45,13 +45,13 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
   let intervalEnd;
 
   const createCounter = (config) => {
-    const counterMetric = counter(config);
+    const counterMetric = counter(config, logger);
     metrics.push(counterMetric);
     return counterMetric;
   };
 
   const createGauge = (config) => {
-    const gaugeMetric = gauge(config);
+    const gaugeMetric = gauge(config, logger);
     metrics.push(gaugeMetric);
     return gaugeMetric;
   };

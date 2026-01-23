@@ -451,4 +451,51 @@ describe("gauge", () => {
       });
     });
   });
+
+  describe(`${metricType.type} created with too many labels`, () => {
+    let client;
+    before(() => {
+      client = pushClient({
+        projectId: "myproject",
+        resourceProvider: globalResourceProvider,
+      });
+    });
+
+    it("throws an error during initialization", () => {
+
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          labels: { code: Array(101).fill().map((_, i) => `code${i}`) },
+        });
+      }).to.throw();
+    });
+
+    it("throws an error when passing too many predefined labels", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          predefined: { labels: { code: Array(101).fill().map((_, i) => `code${i}`) } },
+        });
+      }).to.throw();
+    });
+
+    it("accepts up to 100 predefined labels", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          labels: { code: Array(100).fill().map((_, i) => `code${i}`) },
+        });
+      }).to.not.throw();
+    });
+    it("accepts over 100 predefined labels when indicating highCardinality metric", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          predefined: { labels: { code: Array(120).fill().map((_, i) => `code${i}`) } },
+          allowHighCardinality: true,
+        });
+      }).to.not.throw();
+    });
+  });
 });

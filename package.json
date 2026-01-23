@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "mocha",
+    "test-debug": "mocha -n inspect-brk",
     "posttest": "npm run lint",
     "lint": "eslint .",
     "prepack": "rollup index.js --format cjs --file index.cjs"
