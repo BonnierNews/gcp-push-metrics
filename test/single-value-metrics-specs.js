@@ -338,7 +338,7 @@ describe("gauge", () => {
       });
     });
 
-    describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremeneted`, () => {
+    describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremented`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = pushClient({
@@ -352,7 +352,7 @@ describe("gauge", () => {
 
       after(() => clock.restore);
 
-      it("pushes a single time series for the ${metricType.type} created without labels object", () => {
+      it(`pushes a single time series for the ${metricType.type} created without labels object`, () => {
         expect(metricsRequests).to.have.lengthOf(1);
         expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
         const series = metricsRequests[0].timeSeries[0];
@@ -449,6 +449,178 @@ describe("gauge", () => {
         expect(series.find((s) => s.metric.labels && s.metric.labels.code === "2xx")).to.not.be
           .undefined;
       });
+    });
+  });
+
+  describe(`${metricType.type} created with too many labels`, () => {
+    let client;
+    before(() => {
+      client = pushClient({
+        projectId: "myproject",
+        resourceProvider: globalResourceProvider,
+      });
+    });
+
+    it("throws an error during initialization", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          limit: 100,
+          labels: { code: Array(101).fill().map((_, i) => `code${i}`) },
+        });
+      }).to.throw();
+    });
+
+    it("throws an error when passing too many predefined labels", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          labels: { code: Array(101).fill().map((_, i) => `code${i}`) },
+        });
+      }).to.throw();
+    });
+
+    it("accepts up to 100 predefined labels", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          limit: 100,
+          labels: { code: Array(100).fill().map((_, i) => `code${i}`) },
+        });
+      }).to.not.throw();
+    });
+    it("accepts over 100 predefined labels when indicating highCardinality metric", () => {
+      expect(() => {
+        metricType.method(client)({
+          name: "responses",
+          labels: { code: Array(120).fill().map((_, i) => `code${i}`) },
+          allowHighCardinality: true,
+        });
+      }).to.not.throw();
+    });
+  });
+
+  describe(`${metricType.type} reaching defined label limits`, () => {
+    let client;
+    let clock, metricsRequests;
+    const warnings = [];
+
+    let metricInstance;
+    before(() => {
+      ({ clock, metricsRequests } = fixture());
+
+      const logger = {
+        debug() {},
+        warn(msg) {
+          warnings.push(msg);
+        },
+        error() {},
+      };
+      client = pushClient({
+        projectId: "myproject",
+        logger,
+        resourceProvider: globalResourceProvider,
+        timeSeriesLimit: 10,
+      });
+      metricInstance = metricType.method(client)({
+        name: "responses",
+        labels: { code: [ "2xx", "3xx" ] },
+      });
+      clock.tick(60 * 1000);
+    });
+
+    after(() => clock.restore());
+
+    it("pushes metrics so it exceeds the limit", () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+      expect(metricsRequests[0].timeSeries).to.have.lengthOf(2);
+      for (const i of Array(10).keys()) {
+        metricInstance.inc({ label: `${i}` });
+      }
+      clock.tick(60 * 1000);
+    });
+
+    it("should log a warning", () => {
+      expect(warnings).to.have.lengthOf(1);
+    });
+
+    it("pushes a transient label combination of a metric so it exceeds the limit", () => {
+      const obj = {};
+      for (let i = 1; i <= 11; i++) obj[i] = i;
+
+      metricInstance.inc(obj);
+      clock.tick(60 * 1000);
+    });
+
+    it("should log a warning", () => {
+      expect(warnings).to.have.lengthOf(2);
+    });
+  });
+
+  describe(`${metricType.type} created with transient labels combinations`, () => {
+    let client;
+    let clock, metricsRequests;
+    let metricInstance;
+    before(() => {
+      ({ clock, metricsRequests } = fixture());
+
+      client = pushClient({
+        projectId: "myproject",
+        resourceProvider: globalResourceProvider,
+      });
+      metricInstance = metricType.method(client)({
+        name: "responses",
+        labels: { code: [ "2xx", "3xx" ], source: [ "cdn", "internal" ] },
+      });
+      clock.tick(60 * 1000);
+
+    });
+
+    after(() => clock.restore());
+
+    it("pushes the correct time series", () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+      expect(metricsRequests[0].timeSeries).to.have.lengthOf(4);
+      const series = metricsRequests[0].timeSeries;
+      expect(series[0].metric.labels).to.deep.equal({
+        code: "2xx",
+        source: "cdn",
+      });
+    });
+
+    it("steps clock again", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(2);
+      expect(metricsRequests[1].timeSeries).to.have.lengthOf(4);
+    });
+
+    it("should have added a transient created label", () => {
+      metricInstance.inc({ label: "123", otherValue: "123" });
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(3);
+      expect(metricsRequests[2].timeSeries).to.have.lengthOf(5);
+    });
+
+    it("expect transient timeseries to have been resetted", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(4);
+      expect(metricsRequests[3].timeSeries).to.have.lengthOf(4);
+    });
+
+    it("should have added 50 additional metrics", () => {
+      for (const i of Array(50).keys()) {
+        metricInstance.inc({ label: `value${i}` });
+      }
+
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(5);
+      expect(metricsRequests[4].timeSeries).to.have.lengthOf(54);
+    });
+
+    it("expect transient timeseries to have been resetted", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(6);
+      expect(metricsRequests[5].timeSeries).to.have.lengthOf(4);
     });
   });
 });

@@ -3,9 +3,10 @@ import monitoring from "@google-cloud/monitoring";
 import counter from "./lib/counter.js";
 import gauge from "./lib/gauge.js";
 import summary from "./lib/summary.js";
+import { logTimeSeriesLimit } from "./lib/metricsUtils.js";
 import cloudRunResourceProvider from "./lib/cloudRunResourceProvider.js";
 
-function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider, grpcKeepaliveTimeoutMs, grpcKeepaliveTimeMs, disabled } = {}) {
+function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logger, resourceProvider, grpcKeepaliveTimeoutMs, grpcKeepaliveTimeMs, disabled, timeSeriesLimit = 1000 } = {}) {
   if (intervalSeconds < 1) {
     throw new Error("intervalSeconds must be at least 1");
   }
@@ -45,13 +46,13 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
   let intervalEnd;
 
   const createCounter = (config) => {
-    const counterMetric = counter(config);
+    const counterMetric = counter(config, logger);
     metrics.push(counterMetric);
     return counterMetric;
   };
 
   const createGauge = (config) => {
-    const gaugeMetric = gauge(config);
+    const gaugeMetric = gauge(config, logger);
     metrics.push(gaugeMetric);
     return gaugeMetric;
   };
@@ -82,6 +83,10 @@ function pushClient({ intervalSeconds, createTimeSeriesTimeoutSeconds = 40, logg
       metrics.forEach((metric) => metric.intervalReset());
 
       logger.debug(`pushClient: found ${timeSeries.length} time series which should be pushed`);
+
+      if (timeSeries.length > timeSeriesLimit) {
+        logTimeSeriesLimit({ logger, timeSeries });
+      }
 
       // StackDriver/Cloud Monitoring has a limit of 200 time series per requests
       // so we split our time series into multiple requests if needed
