@@ -465,6 +465,7 @@ describe("gauge", () => {
       expect(() => {
         metricType.method(client)({
           name: "responses",
+          limit: 100,
           labels: { code: Array(101).fill().map((_, i) => `code${i}`) },
         });
       }).to.throw();
@@ -474,7 +475,7 @@ describe("gauge", () => {
       expect(() => {
         metricType.method(client)({
           name: "responses",
-          predefined: { labels: { code: Array(101).fill().map((_, i) => `code${i}`) } },
+          labels: { code: Array(101).fill().map((_, i) => `code${i}`) },
         });
       }).to.throw();
     });
@@ -483,6 +484,7 @@ describe("gauge", () => {
       expect(() => {
         metricType.method(client)({
           name: "responses",
+          limit: 100,
           labels: { code: Array(100).fill().map((_, i) => `code${i}`) },
         });
       }).to.not.throw();
@@ -491,7 +493,7 @@ describe("gauge", () => {
       expect(() => {
         metricType.method(client)({
           name: "responses",
-          predefined: { labels: { code: Array(120).fill().map((_, i) => `code${i}`) } },
+          labels: { code: Array(120).fill().map((_, i) => `code${i}`) },
           allowHighCardinality: true,
         });
       }).to.not.throw();
@@ -533,7 +535,7 @@ describe("gauge", () => {
       expect(metricsRequests).to.have.lengthOf(1);
       expect(metricsRequests[0].timeSeries).to.have.lengthOf(2);
       for (const i of Array(10).keys()) {
-        metricInstance.inc({ dynamicLabel: `${i}` });
+        metricInstance.inc({ label: `${i}` });
       }
       clock.tick(60 * 1000);
     });
@@ -542,7 +544,7 @@ describe("gauge", () => {
       expect(warnings).to.have.lengthOf(1);
     });
 
-    it("pushes a dynamic metric so it exceeds the limit", () => {
+    it("pushes a transient label combination of a metric so it exceeds the limit", () => {
       const obj = {};
       for (let i = 1; i <= 11; i++) obj[i] = i;
 
@@ -555,7 +557,7 @@ describe("gauge", () => {
     });
   });
 
-  describe(`${metricType.type} created with dynamic labels combinations`, () => {
+  describe(`${metricType.type} created with transient labels combinations`, () => {
     let client;
     let clock, metricsRequests;
     let metricInstance;
@@ -592,14 +594,14 @@ describe("gauge", () => {
       expect(metricsRequests[1].timeSeries).to.have.lengthOf(4);
     });
 
-    it("should have added a dynamically created label", () => {
-      metricInstance.inc({ dynamicLabel: "123", otherDynamicLabel: "123" });
+    it("should have added a transient created label", () => {
+      metricInstance.inc({ label: "123", otherValue: "123" });
       clock.tick(60 * 1000);
       expect(metricsRequests).to.have.lengthOf(3);
       expect(metricsRequests[2].timeSeries).to.have.lengthOf(5);
     });
 
-    it("expect dynamically created labels to have been resetted", () => {
+    it("expect transient timeseries to have been resetted", () => {
       clock.tick(60 * 1000);
       expect(metricsRequests).to.have.lengthOf(4);
       expect(metricsRequests[3].timeSeries).to.have.lengthOf(4);
@@ -607,7 +609,7 @@ describe("gauge", () => {
 
     it("should have added 50 additional metrics", () => {
       for (const i of Array(50).keys()) {
-        metricInstance.inc({ dynamicLabel: `dynamicValue${i}` });
+        metricInstance.inc({ label: `value${i}` });
       }
 
       clock.tick(60 * 1000);
@@ -615,7 +617,7 @@ describe("gauge", () => {
       expect(metricsRequests[4].timeSeries).to.have.lengthOf(54);
     });
 
-    it("expect dynamically created labels to have been resetted", () => {
+    it("expect transient timeseries to have been resetted", () => {
       clock.tick(60 * 1000);
       expect(metricsRequests).to.have.lengthOf(6);
       expect(metricsRequests[5].timeSeries).to.have.lengthOf(4);
