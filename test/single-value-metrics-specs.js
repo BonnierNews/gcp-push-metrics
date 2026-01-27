@@ -498,7 +498,7 @@ describe("gauge", () => {
     });
   });
 
-  describe(`${metricType.type} reaching timeSeriesLimit`, () => {
+  describe(`${metricType.type} reaching defined label limits`, () => {
     let client;
     let clock, metricsRequests;
     const warnings = [];
@@ -542,7 +542,19 @@ describe("gauge", () => {
       expect(warnings).to.have.lengthOf(1);
     });
 
+    it("pushes a dynamic metric so it exceeds the limit", () => {
+      const obj = {};
+      for (let i = 1; i <= 11; i++) obj[i] = i;
+
+      metricInstance.inc(obj);
+      clock.tick(60 * 1000);
+    });
+
+    it("should log a warning", () => {
+      expect(warnings).to.have.lengthOf(2);
+    });
   });
+
   describe(`${metricType.type} created with dynamic labels combinations`, () => {
     let client;
     let clock, metricsRequests;
@@ -580,7 +592,7 @@ describe("gauge", () => {
       expect(metricsRequests[1].timeSeries).to.have.lengthOf(4);
     });
 
-    it("we add a dynamically created label", () => {
+    it("should have added a dynamically created label", () => {
       metricInstance.inc({ dynamicLabel: "123", otherDynamicLabel: "123" });
       clock.tick(60 * 1000);
       expect(metricsRequests).to.have.lengthOf(3);
@@ -593,7 +605,7 @@ describe("gauge", () => {
       expect(metricsRequests[3].timeSeries).to.have.lengthOf(4);
     });
 
-    it("and we add some more dynamic labels", () => {
+    it("should have added 50 additional metrics", () => {
       for (const i of Array(50).keys()) {
         metricInstance.inc({ dynamicLabel: `dynamicValue${i}` });
       }
