@@ -462,7 +462,6 @@ describe("gauge", () => {
     });
 
     it("throws an error during initialization", () => {
-
       expect(() => {
         metricType.method(client)({
           name: "responses",
@@ -544,6 +543,70 @@ describe("gauge", () => {
     });
 
   });
+  describe(`${metricType.type} created with dynamic labels combinations`, () => {
+    let client;
+    let clock, metricsRequests;
+    let metricInstance;
+    before(() => {
+      ({ clock, metricsRequests } = fixture());
 
+      client = pushClient({
+        projectId: "myproject",
+        resourceProvider: globalResourceProvider,
+      });
+      metricInstance = metricType.method(client)({
+        name: "responses",
+        labels: { code: [ "2xx", "3xx" ], source: [ "cdn", "internal" ] },
+      });
+      clock.tick(60 * 1000);
 
+    });
+
+    after(() => clock.restore());
+
+    it("pushes the correct time series", () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+      expect(metricsRequests[0].timeSeries).to.have.lengthOf(4);
+      const series = metricsRequests[0].timeSeries;
+      expect(series[0].metric.labels).to.deep.equal({
+        code: "2xx",
+        source: "cdn",
+      });
+    });
+
+    it("steps clock again", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(2);
+      expect(metricsRequests[1].timeSeries).to.have.lengthOf(4);
+    });
+
+    it("we add a dynamically created label", () => {
+      metricInstance.inc({ dynamicLabel: "123", otherDynamicLabel: "123" });
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(3);
+      expect(metricsRequests[2].timeSeries).to.have.lengthOf(5);
+    });
+
+    it("expect dynamically created labels to have been resetted", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(4);
+      expect(metricsRequests[3].timeSeries).to.have.lengthOf(4);
+    });
+
+    it("and we add some more dynamic labels", () => {
+      for (const i of Array(50).keys()) {
+        metricInstance.inc({ dynamicLabel: `dynamicValue${i}` });
+      }
+
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(5);
+      expect(metricsRequests[4].timeSeries).to.have.lengthOf(54);
+    });
+
+    it("expect dynamically created labels to have been resetted", () => {
+      clock.tick(60 * 1000);
+      expect(metricsRequests).to.have.lengthOf(6);
+      expect(metricsRequests[5].timeSeries).to.have.lengthOf(4);
+    });
+  });
 });
