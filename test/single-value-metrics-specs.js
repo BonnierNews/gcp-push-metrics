@@ -338,7 +338,7 @@ describe("gauge", () => {
       });
     });
 
-    describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremeneted`, () => {
+    describe(`one ${metricType.type} with empty labels object, one ${metricType.type} without labels object, neither incremented`, () => {
       before(() => {
         ({ clock, metricsRequests } = fixture());
         const client = pushClient({
@@ -352,7 +352,7 @@ describe("gauge", () => {
 
       after(() => clock.restore);
 
-      it("pushes a single time series for the ${metricType.type} created without labels object", () => {
+      it(`pushes a single time series for the ${metricType.type} created without labels object`, () => {
         expect(metricsRequests).to.have.lengthOf(1);
         expect(metricsRequests[0].timeSeries).to.have.lengthOf(1);
         const series = metricsRequests[0].timeSeries[0];
@@ -498,4 +498,52 @@ describe("gauge", () => {
       }).to.not.throw();
     });
   });
+
+  describe(`${metricType.type} reaching timeSeriesLimit`, () => {
+    let client;
+    let clock, metricsRequests;
+    const warnings = [];
+
+    let metricInstance;
+    before(() => {
+      ({ clock, metricsRequests } = fixture());
+
+      const logger = {
+        debug() {},
+        warn(msg) {
+          warnings.push(msg);
+        },
+        error() {},
+      };
+      client = pushClient({
+        projectId: "myproject",
+        logger,
+        resourceProvider: globalResourceProvider,
+        timeSeriesLimit: 10,
+      });
+      metricInstance = metricType.method(client)({
+        name: "responses",
+        labels: { code: [ "2xx", "3xx" ] },
+      });
+      clock.tick(60 * 1000);
+    });
+
+    after(() => clock.restore());
+
+    it("pushes metrics so it exceeds the limit", () => {
+      expect(metricsRequests).to.have.lengthOf(1);
+      expect(metricsRequests[0].timeSeries).to.have.lengthOf(2);
+      for (const i of Array(10).keys()) {
+        metricInstance.inc({ dynamicLabel: `${i}` });
+      }
+      clock.tick(60 * 1000);
+    });
+
+    it("should log a warning", () => {
+      expect(warnings).to.have.lengthOf(1);
+    });
+
+  });
+
+
 });
