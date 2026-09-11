@@ -4,19 +4,19 @@ import nock from "nock";
 import { cloudRunResourceProvider } from "../index.js";
 
 describe("cloud run resource provider when the metadata server is slow", () => {
-  const delayMs = 600;
-  const attempts = 6;
+  const delayMs = 3500;
+  const attempts = 4;
   let err, elapsed;
 
   before(async function () {
-    this.timeout(5000);
+    this.timeout(10000);
     process.env.K_SERVICE = "hello-world";
     const scope = nock("http://metadata.google.internal", { reqheaders: { "Metadata-Flavor": "Google" } });
     scope
       .get("/computeMetadata/v1/instance/region")
       .reply(200, "projects/385402317761/regions/europe-west1");
     scope.get("/computeMetadata/v1/instance/id").reply(200, "some-instance-id");
-    // Well beyond the 200 ms timeout the provider asks for. Note that nock emits
+    // Well beyond the 3 s timeout the provider asks for. Note that nock emits
     // "timeout" as soon as it sees a delay larger than the timeout, so this
     // covers that the event is acted on, not the exact timing of it.
     // Every attempt, including the retries, times out

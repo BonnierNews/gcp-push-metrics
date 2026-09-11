@@ -3,8 +3,13 @@ import nock from "nock";
 
 import { cloudRunResourceProvider } from "../index.js";
 
-const maxRetries = 5;
-const retryDelayMs = 200;
+const maxRetries = 3;
+// The exponential backoff the provider mirrors from gcp-metadata/gaxios,
+// i.e. 100 ms before the first retry, then 500 and 1500 ms
+const backoffDelay = (retryAttempt) => (retryAttempt === 0 ? 100 : 0) + ((2 ** retryAttempt - 1) / 2) * 1000;
+// How long a run that makes the given number of attempts spends sleeping
+const backoffBefore = (attempts) =>
+  Array.from({ length: attempts - 1 }, (_, retryAttempt) => backoffDelay(retryAttempt)).reduce((sum, ms) => sum + ms, 0);
 const connectionRefused = () => Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
 const projectIdPath = "/computeMetadata/v1/project/project-id";
 
@@ -21,7 +26,7 @@ describe("cloud run resource provider when a metadata request fails intermittent
   let resources, resolveErr, attempts, elapsed;
 
   before(async function () {
-    this.timeout(5000);
+    this.timeout(10000);
     process.env.K_SERVICE = "hello-world";
     attempts = 0;
     const scope = metadataScope();
@@ -54,8 +59,8 @@ describe("cloud run resource provider when a metadata request fails intermittent
     expect(attempts).to.equal(3);
   });
 
-  it("sleeps between the attempts it made", () => {
-    expect(elapsed).to.be.at.least(2 * retryDelayMs * 0.9);
+  it("backs off exponentially between the attempts it made", () => {
+    expect(elapsed).to.be.at.least(backoffBefore(3) * 0.9);
   });
 });
 
@@ -63,7 +68,7 @@ describe("cloud run resource provider when a metadata request keeps failing", ()
   let err, attempts, elapsed;
 
   before(async function () {
-    this.timeout(5000);
+    this.timeout(10000);
     process.env.K_SERVICE = "hello-world";
     attempts = 0;
     const scope = metadataScope();
@@ -97,8 +102,8 @@ describe("cloud run resource provider when a metadata request keeps failing", ()
     expect(attempts).to.equal(maxRetries + 1);
   });
 
-  it("sleeps between every attempt, but not after the last one", () => {
-    expect(elapsed).to.be.at.least(maxRetries * retryDelayMs * 0.9);
-    expect(elapsed).to.be.below((maxRetries + 1) * retryDelayMs);
+  it("backs off before every retry, but does not sleep after the last attempt", () => {
+    expect(elapsed).to.be.at.least(backoffBefore(maxRetries + 1) * 0.9);
+    expect(elapsed).to.be.below(backoffBefore(maxRetries + 2));
   });
 });
