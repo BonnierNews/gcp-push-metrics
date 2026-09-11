@@ -16,10 +16,6 @@ describe("cloud run resource provider when the metadata server is slow", () => {
       .get("/computeMetadata/v1/instance/region")
       .reply(200, "projects/385402317761/regions/europe-west1");
     scope.get("/computeMetadata/v1/instance/id").reply(200, "some-instance-id");
-    // Well beyond the 3 s timeout the provider asks for. Note that nock emits
-    // "timeout" as soon as it sees a delay larger than the timeout, so this
-    // covers that the event is acted on, not the exact timing of it.
-    // Every attempt, including the retries, times out
     scope
       .get("/computeMetadata/v1/project/project-id")
       .times(attempts)
@@ -45,7 +41,6 @@ describe("cloud run resource provider when the metadata server is slow", () => {
   });
 
   it("gives up instead of waiting out the slow requests", () => {
-    // Aborting each attempt costs far less than letting all of them run to completion
     expect(elapsed).to.be.below(attempts * delayMs);
   });
 });
