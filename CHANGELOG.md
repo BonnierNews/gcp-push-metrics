@@ -1,4 +1,6 @@
 # Changelog
+## 4.4.0
+- Bumped @google-cloud/monitoring to 5.4.0
 
 ## 4.1.0
 - Added parameter `disabled` for disabling pushing metrics locally
